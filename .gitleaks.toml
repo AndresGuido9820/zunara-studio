@@ -1,0 +1,6 @@
+title = "Zunara Studio secret scanning"
+[extend]
+useDefault = true
+[[allowlists]]
+description = "Generated local environments and tool caches"
+paths = ['''(^|/)\.venv/''', '''(^|/)\.(mypy|ruff|pytest)_cache/''', '''(^|/)(dist|build)/''']
