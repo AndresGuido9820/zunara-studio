@@ -80,6 +80,26 @@ If an upload is interrupted, its state stays `uploading`. Check YouTube Studio b
 queue to retry: the server might already have accepted the video. Zunara does not automatically retry
 an upload with an unknown outcome.
 
+## Topic policy
+
+You can limit a platform to specific topics. Put the policy in your user config directory, next to
+your OAuth files, never in a workspace or this repository:
+
+```json
+{"platforms": {"x": {"allowed_topics": ["programming"]}}}
+```
+
+Save it as `publishing-policy.json` in the directory `zunara doctor` reports as `config_dir`, then set
+a `topic` on each queue entry, for example `"topic": "programming"`. Topic names are lowercase
+letters, digits, `_` or `-`. For a configured platform, `zunara export` and `zunara publish` reject
+the whole selection if any clip has no topic or a topic that isn't listed. Nothing is exported
+and no YouTube client is opened. Platforms not listed, and setups without the file, are unrestricted.
+Known platforms are `x`, `youtube`, `tiktok` and `instagram`. A malformed file blocks every
+export and publish until it is fixed.
+
+The policy is checked by the CLI. Calling `zunara.queue.export` or `zunara.youtube.upload`
+directly from Python does not apply it; call `zunara.editorial.load_policy(...).check(...)` first.
+
 ## Find and render moments
 
 The download stage uses Kick's website endpoints and `yt-dlp`; these can change independently of

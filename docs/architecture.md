@@ -28,6 +28,7 @@ flowchart LR
 | `config` | Resolve portable config and data paths | Create files during import |
 | `storage` | Atomic JSON replacement and workspace containment | Deserialize executable objects |
 | `queue` | Discover media, record review hashes, export selected clips | Call platform APIs |
+| `editorial` | Load and check the optional per-platform topic policy | Read workspaces or call platform APIs |
 | `media` | Run bounded `ffprobe` inspection | Invoke a shell |
 | `youtube` | OAuth, exact channel binding, previews, remote writes | Upload without explicit execution |
 | `signals`, `audio_match`, `rank_moments` | Audio/chat analysis and candidate ranking | Publish or claim editorial approval |
@@ -48,6 +49,7 @@ is needed for the current single-user workflow.
   "title": "An unexpected answer",
   "description": "Source and context for this clip.",
   "tags": ["interview"],
+  "topic": "programming",
   "sha256": "<computed SHA-256>",
   "approved_sha256": null,
   "youtube_id": null,
@@ -55,7 +57,7 @@ is needed for the current single-user workflow.
 }
 ```
 
-`approved_sha256 = null` means unreviewed. Approval records the current media digest. A byte change
+`topic` is optional and only matters when the topic policy restricts the destination platform. `approved_sha256 = null` means unreviewed. Approval records the current media digest. A byte change
 invalidates that approval. `youtube_id` is the platform's identifier after success. The adapter writes
 `uploading` before starting a remote write and `uploaded` after receiving an ID. An interrupted
 request remains ambiguous; it must be reconciled by a person against Studio before retrying.
@@ -70,6 +72,20 @@ as complete new directories and refuse to overwrite an existing batch.
 
 A missing clip makes queue validation fail closed. Restore the clip, or back up `queue.json` and
 remove its stale entry manually while no command is running. There is no automatic prune command.
+
+## Topic policy contract
+
+`CONFIG_DIR/publishing-policy.json` is optional: `{"platforms": {PLATFORM: {"allowed_topics": [...]}}}`.
+Only `x`, `youtube`, `tiktok` and `instagram` are accepted. Unknown keys, empty lists and topic names
+outside `[a-z0-9][a-z0-9_-]{0,63}` are errors. A missing file means no restriction. An unreadable or
+malformed file fails closed.
+
+The CLI enforces it. `export` checks the whole selected batch, under the workspace lock, before any
+export directory is created. `publish` checks the clips that still need an upload before it opens
+the YouTube client, so a denied batch never authenticates. `queue.export` and `youtube.upload` do
+not read the policy; library callers must call `editorial.load_policy(config_dir).check(platform, rows)`
+themselves. The policy is an editorial guard rail, not access control: anyone who can edit the
+queue or the config file can change topics.
 
 ## Time and resources
 

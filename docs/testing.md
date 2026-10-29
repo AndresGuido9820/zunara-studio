@@ -5,7 +5,7 @@ media, authorizes OAuth or posts to a real account. Tests generate their own tin
 
 | Layer | Directory | What it proves |
 | --- | --- | --- |
-| Unit | `tests/unit` | Input validation, queue state, hashes, private JSON permissions, signal edge cases and caption escaping |
+| Unit | `tests/unit` | Input validation, queue state, hashes, private JSON permissions, topic policy at the CLI boundary, signal edge cases and caption escaping |
 | Contract | `tests/contracts` | YouTube request shape, channel mismatch, previews, scheduling, success and interrupted uploads using a fake SDK |
 | Integration | `tests/integration` | Installed CLI and real FFmpeg/ffprobe with synthetic media; no model downloads or Internet |
 
@@ -34,6 +34,6 @@ Workflow and secret checks can also run locally on Linux x86_64 with
 reviewed SHA-256 hashes. Update both version and hash when upgrading either tool.
 
 Ruff applies to all Python files. Mypy currently checks the config, storage, media, queue, YouTube
-and CLI boundaries; the inherited analysis and rendering stages are not fully typed. Coverage of
+editorial policy and CLI boundaries; the inherited analysis and rendering stages are not fully typed. Coverage of
 subprocess CLI tests is not attributed to the parent coverage process, so the reported percentage
 understates those integration checks. No minimum coverage percentage is enforced.
