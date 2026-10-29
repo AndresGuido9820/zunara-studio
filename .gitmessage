@@ -1,0 +1,6 @@
+# type(scope): imperative description (72 characters maximum)
+
+# Why this change is needed; explain tradeoffs rather than repeating the diff.
+
+# Closes #123
+# BREAKING CHANGE: describe the contract change and migration, when applicable.

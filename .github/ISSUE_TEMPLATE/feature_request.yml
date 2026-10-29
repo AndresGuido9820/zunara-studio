@@ -1,0 +1,13 @@
+name: Feature request
+description: Propose a change to a clip workflow
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What workflow is missing or difficult?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and alternatives
