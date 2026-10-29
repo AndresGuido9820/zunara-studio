@@ -373,3 +373,17 @@ def test_corrupt_token_noninteractive_requests_auth_without_overwriting(
         youtube.client(settings, "main")
     assert token.read_text() == "not JSON"
     assert google.flows == []
+
+
+def test_symlinked_token_file_refused_without_read(
+    google: FakeGoogle, settings: Settings, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside.json"
+    outside.write_text("SYNTHETIC_PRIVATE_CONTENT")
+    token = settings.token_path("main")
+    token.parent.mkdir(parents=True)
+    token.symlink_to(outside)
+    with pytest.raises(ValueError, match="symlink"):
+        youtube.client(settings, "main", interactive=True)
+    assert google.loaded == []
+    assert outside.read_text() == "SYNTHETIC_PRIVATE_CONTENT"

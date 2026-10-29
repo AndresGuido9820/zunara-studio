@@ -20,6 +20,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote_plus, urlsplit
 
 import requests
 
@@ -30,6 +31,13 @@ UA = {"User-Agent": "Mozilla/5.0"}
 YT_EXCLUDE = ("w sound", "letra", "lyric", "video oficial", "official video", "ovy on")
 
 
+def https_url(value: str) -> str:
+    parts = urlsplit(value)
+    if parts.scheme != "https" or not parts.hostname:
+        raise ValueError("Remote media must use an absolute HTTPS URL.")
+    return value
+
+
 def kick_get(path: str):
     response = requests.get(f"https://kick.com/api/{path}", headers=UA, timeout=20)
     response.raise_for_status()
@@ -37,6 +45,7 @@ def kick_get(path: str):
 
 
 def ffmpeg_audio(url: str, out: Path) -> None:
+    https_url(url)
     subprocess.run(
         [
             executable("ffmpeg"),
@@ -105,7 +114,7 @@ def main() -> None:
     yt_terms = args.youtube_query
 
     vod = kick_get(f"v2/channels/{channel}/videos")[index]
-    base = vod["source"].rsplit("/", 1)[0]
+    base = https_url(vod["source"]).rsplit("/", 1)[0]
     start = datetime.fromisoformat(vod["start_time"].replace(" ", "T") + "+00:00")
     duration_s = vod["duration"] // 1000
     work = args.workspace / f"{channel}_{start:%Y%m%d}"
@@ -165,7 +174,7 @@ def main() -> None:
 
     ids = set()
     for term in yt_terms:
-        url = f"https://www.youtube.com/results?search_query={term.replace(' ', '+')}&sp=CAISAhgB"
+        url = f"https://www.youtube.com/results?search_query={quote_plus(term)}&sp=CAISAhgB"
         listing = subprocess.run(
             [executable("yt-dlp"), "--flat-playlist", "--print", "%(id)s|%(title)s", url],
             capture_output=True,
