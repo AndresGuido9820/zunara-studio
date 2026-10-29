@@ -11,7 +11,9 @@ from typing import Any
 
 from zunara import __version__, queue, youtube
 from zunara.config import Settings
+from zunara.editorial import load_policy
 from zunara.media import probe
+from zunara.storage import workspace_lock
 
 
 def parser() -> argparse.ArgumentParser:
@@ -94,24 +96,34 @@ def run(args: argparse.Namespace) -> Any:
             raise ValueError("Approval requires --only with the clips you have reviewed.")
         return queue.approve(args.work, only)
     if args.command == "export":
-        return {
-            "exported": queue.export(
+        policy = load_policy(settings.config_dir)
+        # The topic policy is enforced at this boundary, before export creates any directory.
+        with workspace_lock(args.work):
+            policy.check(args.platform, queue.select(queue.load(args.work), only))
+            exported = queue.export(
                 args.work, args.destination or settings.data_dir / "ready", args.platform, only
             )
-        }
+        return {"exported": exported}
     if args.command == "auth":
         return youtube.identity(youtube.client(settings, args.channel, interactive=True))
     if args.command == "publish":
-        return youtube.upload(
-            args.work,
-            youtube.client(settings, args.channel),
-            channel_id=args.channel_id,
-            only=only,
-            privacy=args.privacy,
-            schedule=args.schedule,
-            every_hours=args.every_hours,
-            execute=args.execute,
-        )
+        policy = load_policy(settings.config_dir)
+        with workspace_lock(args.work):
+            # Check before opening the client; rows that already have a video ID are skipped.
+            pending = [
+                r for r in queue.select(queue.load(args.work), only) if not r.get("youtube_id")
+            ]
+            policy.check("youtube", pending)
+            return youtube.upload(
+                args.work,
+                youtube.client(settings, args.channel),
+                channel_id=args.channel_id,
+                only=only,
+                privacy=args.privacy,
+                schedule=args.schedule,
+                every_hours=args.every_hours,
+                execute=args.execute,
+            )
     if args.command == "render":
         from zunara.render import render
 
