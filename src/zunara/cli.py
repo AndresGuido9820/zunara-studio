@@ -57,6 +57,12 @@ def parser() -> argparse.ArgumentParser:
     render.add_argument("--hook", required=True)
     render.add_argument("--name", required=True)
     render.add_argument("--layout", choices=["4:3", "full"], default="4:3")
+    render.add_argument(
+        "--source",
+        type=Path,
+        metavar="PATH",
+        help="Cut from this local video (e.g. a downloaded MP4) instead of the workspace VOD",
+    )
     for name, module in (
         ("fetch", "fetch_vod"),
         ("match", "audio_match"),
@@ -128,7 +134,11 @@ def run(args: argparse.Namespace) -> Any:
         from zunara.render import render
 
         return {
-            "file": str(render(args.work, args.start, args.end, args.hook, args.name, args.layout))
+            "file": str(
+                render(
+                    args.work, args.start, args.end, args.hook, args.name, args.layout, args.source
+                )
+            )
         }
     # Analysis dependencies and ASR models are loaded only for the stage that needs them.
     stage = importlib.import_module(f"zunara.{args.module}")

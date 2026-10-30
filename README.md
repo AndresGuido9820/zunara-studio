@@ -113,6 +113,20 @@ uv run zunara rank /path/to/workspace 10
 uv run zunara render /path/to/workspace 60 95 --hook 'An unexpected answer' --name first-clip
 ```
 
+To cut from a video file you already have, such as a downloaded stream fragment, pass it with
+`--source`. The workspace then only receives the output; it needs no `base_url.txt` or
+`audio16k.wav`:
+
+```sh
+uv run zunara render ~/Videos/work 12.5 41 --source ~/Videos/stream-part.mp4 \
+  --hook 'An unexpected answer' --name first-clip
+```
+
+Times are seconds into the source file. The source must have video and audio and must cover the
+interval. Only the selected audio is transcribed, the source file is left untouched, and the
+command refuses to replace an existing `out/<name>.mp4` or `.ass`. Without `--source`, `render`
+keeps cutting from the workspace VOD as before.
+
 The renderer uses VAAPI when available, otherwise software H.264. It keeps a wide foreground with
 a blurred background so people at the edge of a stream are not lost to a tight vertical crop.
 Ranking proposes moments; it does not judge whether a clip is accurate or worth publishing.
