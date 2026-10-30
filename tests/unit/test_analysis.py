@@ -1,6 +1,8 @@
 """Local signal edge cases and subtitle injection boundaries, without model loading."""
 
 import json
+import tomllib
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -54,3 +56,14 @@ def test_render_rejects_path_traversal_before_model_or_file_access(tmp_path):
     with pytest.raises(ValueError):
         render(tmp_path, 0, 5, "Hook", "../escape")
     assert not list(tmp_path.iterdir())
+
+
+def test_asr_extra_installs_the_model_downloader():
+    # onnx-asr only pulls huggingface-hub through its own "hub" extra; asr_model needs it.
+    project = tomllib.loads(
+        (Path(__file__).parents[2] / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    names = [
+        r.split(">")[0].split("[")[0] for r in project["project"]["optional-dependencies"]["asr"]
+    ]
+    assert "huggingface-hub" in names

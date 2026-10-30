@@ -16,7 +16,7 @@ dependencies = ["filelock>=3.18", "platformdirs>=4.3", "numpy>=2.0", "soundfile>
 downloads = ["yt-dlp>=2025.3.31"]
 youtube = ["google-api-python-client>=2.160", "google-auth-oauthlib>=1.2"]
 analysis = ["librosa>=0.11", "scipy>=1.15"]
-asr = ["onnx-asr[cpu]>=0.8"]
+asr = ["onnx-asr[cpu]>=0.8", "huggingface-hub>=0.30.2"]
 
 [project.scripts]
 zunara = "zunara.cli:main"
