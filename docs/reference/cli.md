@@ -77,7 +77,7 @@ descriptions up to 5000 characters, even for a non-YouTube destination.
 Platforms are `tiktok`, `instagram`, `x`, `youtube`. Destination defaults to `DATA_DIR/ready`; the
 batch is `DESTINATION/PLATFORM/WORK_BASENAME/`. Its parent may be created, but an existing batch is
 refused. Each video gets a `.txt` containing title and description; tags are not appended.
-`manifest.json` contains filenames and approved hashes. There is no direct TikTok/Instagram/X post.
+`manifest.json` contains filenames and approved hashes. Export itself never posts. The optional `social` commands publish through Upload-Post.
 See [workspace reference](workspace.md) for record fields, policy and locking.
 
 ## YouTube
@@ -137,3 +137,26 @@ The JSON result is `{"stage": "fetch", "status": "complete"}` (or `match` / `ran
 records are written into workspace files. Stage progress goes to stderr. Use `fetch --help`, `match
 --help` or `rank --help` for real arguments without importing optional dependencies. The [rendering
 guide](../guides/rendering.md) connects these stages using the same workspace.
+
+## Multi-platform API
+
+```text
+social doctor
+social accounts
+social publish WORK --only STEMS --profile PROFILE --platform PLATFORM [--platform PLATFORM ...]
+               --account PLATFORM=ID [--account PLATFORM=ID ...]
+               [--schedule ISO_DATETIME] [--language CODE] [--privacy {private,unlisted,public}]
+               [--execute]
+social status WORK [--refresh]
+```
+
+See the [API publishing guide](../guides/social-api.md) for connection setup and recovery.
+`doctor` is offline; `accounts` and publication preview contact the provider. An expected account
+identifier is required for every selected platform. Publication enforces the existing topic policy,
+media hashes and destination identities before uploads. `--execute` transfers media; its absence
+only returns preflight. A configured API key and connected provider accounts are required.
+
+`status` reads workspace API receipts. `--refresh` polls known request/job IDs without uploading.
+Accepted processing and schedules remain distinct from provider-confirmed per-platform results.
+Requests with unknown outcomes are not automatically retried. The existing `publish` command uses
+Google directly and keeps its original contract.

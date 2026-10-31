@@ -6,7 +6,7 @@ media, authorizes OAuth or posts to a real account. Tests generate their own tin
 | Layer | Directory | What it proves |
 | --- | --- | --- |
 | Unit | `tests/unit` | Input validation, queue state, hashes, private JSON permissions, topic policy at the CLI boundary, signal edge cases and caption escaping |
-| Contract | `tests/contracts` | YouTube request shape, channel mismatch, previews, scheduling, success and interrupted uploads using a fake SDK |
+| Contract | `tests/contracts` | YouTube request shape using a fake SDK; multi-platform HTTP payloads, account checks, asynchronous results and interrupted submissions using fake HTTP |
 | Integration | `tests/integration` | Installed CLI and real FFmpeg/ffprobe with synthetic media; no model downloads or Internet |
 
 Tests describe behavior rather than reproducing every implementation statement. Negative cases
@@ -24,7 +24,8 @@ Coverage measures tested lines, not correctness. Acquisition and audio matching 
 and excluded from the initial coverage denominator; they have explicit algorithm tests where
 possible. Real Kick compatibility, model recognition accuracy and live OAuth require manual smoke
 tests and are not implied by a green CI badge. No upload has been validated merely by running
-fake-client tests.
+fake-client tests. Multi-platform contract tests likewise do not prove a provider account is connected,
+that a subscription permits a destination, or that a real video is public.
 
 CI checks Python 3.11–3.13 on Linux. Other operating systems have not been validated. A separate
 quality job runs Ruff lint/format, mypy, Bandit, dependency auditing, package build/metadata checks,

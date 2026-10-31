@@ -102,3 +102,10 @@ reference](../reference/workspace.md#config-and-data-paths). Zunara doesn't load
 workspaces, media and credentials outside the checkout.
 
 Next: [make your first clip](first-clip.md).
+
+## Optional publication service
+
+The multi-platform `social` commands use the existing `requests` dependency. They require an
+Upload-Post account and key, separate from Google OAuth and browser sessions. Account connections,
+plan limits and private key storage are described in [API publishing](social-api.md). The offline
+`zunara social doctor` command reports configuration presence without validating a live grant.

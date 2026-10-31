@@ -59,6 +59,11 @@ not covered by the queue lock, so don't overlap it with queue/export/upload edit
 
 ## Account access and publication
 
+For recurring API publication across networks, use the [social commands](social-api.md).
+Discover connected identifiers, preview the approved selection, execute within the user's scope,
+and poll saved receipts. A request ID alone is not proof that a post is published.
+
+
 Follow the user's existing instructions and granted scope; authorization can persist across runs.
 Local preparation and export need no platform login. `publish` preview is an online preflight: it
 reads the authorized channel and can refresh/save a token, but does not upload media. `auth` may
