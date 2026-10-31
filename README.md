@@ -136,6 +136,21 @@ zunara instagram publish /work/session --only clip-01 \
 # --execute prepares the upload; instagram finish handles publication after processing.
 ```
 
+## Unattended Instagram browser publishing
+
+`zunara browser` publishes approved clips through a dedicated Chromium profile, or through your
+main, already logged-in Chrome using Microsoft's Playwright Extension (`--connection chrome`). You
+log in or connect once yourself. Later runs, for example from a timer, verify the account on the
+page and share without an agent. It stops at logins, checkpoints, captchas or unexpected UI, and never retries a share
+whose outcome is unknown. Only Instagram is supported. See [browser
+publishing](docs/guides/browser-publishing.md).
+
+```sh
+zunara browser login --platform instagram --username YOUR_HANDLE
+zunara browser publish /work/session --platform instagram --username YOUR_HANDLE --only clip-01
+# Add --execute to publish; zunara browser status /work/session reads receipts.
+```
+
 ## Optional multi-platform service
 
 `zunara social` publishes approved media through Upload-Post without routine browser uploads.
@@ -201,7 +216,7 @@ proposes moments; it does not judge whether a clip is accurate or worth publishi
 | --- | --- |
 | YouTube | Direct OAuth upload and scheduling, or optional Upload-Post API |
 | TikTok | Local export, or Upload-Post API with an eligible paid plan |
-| Instagram | Direct Meta local-file upload, local export, or optional Upload-Post API |
+| Instagram | Direct Meta local-file upload, unattended browser profile, local export, or optional Upload-Post API |
 | X | Local export, or optional Upload-Post API; provider link-post pricing applies |
 
 API access, account eligibility and platform limits are separate from installing Zunara. Use media

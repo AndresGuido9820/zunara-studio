@@ -17,6 +17,7 @@ downloads = ["yt-dlp>=2025.3.31"]
 youtube = ["google-api-python-client>=2.160", "google-auth-oauthlib>=1.2"]
 analysis = ["librosa>=0.11", "scipy>=1.15"]
 asr = ["onnx-asr[cpu]>=0.8", "huggingface-hub>=0.30.2"]
+browser = ["playwright>=1.55"]
 
 [project.scripts]
 zunara = "zunara.cli:main"
@@ -41,7 +42,7 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib -ra --strict-markers"
-markers = ["integration: exercises local external tools, never platform APIs", "contract: adapter tests with fake remote clients"]
+markers = ["integration: exercises local external tools, never platform APIs", "contract: adapter tests with fake remote clients", "browser: drives local Chromium against fixture pages; never a real platform"]
 
 [tool.coverage.run]
 source = ["zunara"]
@@ -49,7 +50,7 @@ omit = ["*/audio_match.py", "*/rank_moments.py", "*/fetch_vod.py"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src/zunara/config.py", "src/zunara/storage.py", "src/zunara/media.py", "src/zunara/queue.py", "src/zunara/youtube.py", "src/zunara/cli.py", "src/zunara/editorial.py", "src/zunara/social.py", "src/zunara/instagram.py"]
+files = ["src/zunara/config.py", "src/zunara/storage.py", "src/zunara/media.py", "src/zunara/queue.py", "src/zunara/youtube.py", "src/zunara/cli.py", "src/zunara/editorial.py", "src/zunara/social.py", "src/zunara/instagram.py", "src/zunara/browser.py", "src/zunara/browser_bridge.py"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 warn_unused_ignores = true

@@ -14,6 +14,7 @@ when you need them. Shell examples use POSIX syntax and run from the checkout un
 - [Rendering and stream analysis](guides/rendering.md): timestamps, layouts, captions and ranking.
 - [Native publishing](guides/native-publishing.md): your own YouTube/Meta apps without an intermediary.
 - [Multi-platform API publishing](guides/social-api.md): account connections, upload and receipts.
+- [Unattended browser publishing](guides/browser-publishing.md): Instagram through a dedicated profile.
 - [YouTube](guides/youtube.md): authorization, online preview, uploads, schedules and recovery.
 - [Troubleshooting](guides/troubleshooting.md): symptoms, checks and fixes.
 

@@ -60,8 +60,13 @@ Everything else is opt-in:
 | `youtube` | Google API client and OAuth libraries | `auth` and `publish` |
 | `analysis` | `librosa` and `scipy` | `match` |
 | `downloads` | `yt-dlp` | `fetch`, unless `yt-dlp` is already on your `PATH` |
+| `browser` | Playwright (then `playwright install chromium`) | `browser login` and dedicated-profile `browser publish --execute` |
 
-`uv sync --locked --no-dev --all-extras` installs all four. If an extra is missing, the command that
+The main-Chrome connection (`browser connect`, `--connection chrome`) needs no Python extra. It
+needs Node.js with `npx` and Microsoft's Playwright Extension in Chrome. See [browser
+publishing](browser-publishing.md#or-connect-your-main-chrome).
+
+`uv sync --locked --no-dev --all-extras` installs all five. If an extra is missing, the command that
 needs it fails; see [troubleshooting](troubleshooting.md#missing-extras).
 
 The base runtime dependencies are:

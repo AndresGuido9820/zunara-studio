@@ -13,6 +13,7 @@ session-01/
     clip-01.ass          # optional render sidecar; captions are already burned into MP4
     queue.json          # metadata, media hashes and direct YouTube upload state
     social-publications.json  # optional multi-platform API receipts
+    browser-publications.json # optional unattended-browser receipts
     .zunara.lock        # queue/export/upload coordination
 ```
 
@@ -183,3 +184,13 @@ do not remove its receipt or change workspaces merely to force a second upload. 
 a returned media ID; `api_published` means Meta reported `PUBLISHED` for the container after a lost
 response, but the media ID/permalink is still unknown. Preserve both outcomes when moving or
 rolling back a workspace. See [native publishing](../guides/native-publishing.md).
+
+## Browser publishing state
+
+`out/browser-publications.json` is a private version-1 envelope with a `records` array. The key is
+platform + username + approved media SHA-256, scoped to the workspace. Records hold the filename,
+caption SHA-256, `state` (`preflight`, `stopped`, `composing`, `sharing`, `unknown`, `published`),
+the stop `status`, the `media_selected` and `share_clicked` flags, an observed permalink or null,
+and UTC timestamps. `composing` is saved before media is attached and `sharing` before Share is
+clicked, so a crash never causes a silent second post. See [browser
+publishing](../guides/browser-publishing.md#results-and-receipts).

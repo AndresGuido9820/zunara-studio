@@ -182,3 +182,30 @@ The Page token comes from `ZUNARA_INSTAGRAM_ACCESS_TOKEN`, then private
 `CONFIG_DIR/instagram-access-token`. The Facebook-Login local-file path needs a Page-linked
 professional account and an appropriately authorized Meta app. See [native
 publishing](../guides/native-publishing.md) for setup, state recovery and supported metadata.
+
+## Unattended browser (Instagram)
+
+```text
+browser doctor
+browser login --platform instagram --username HANDLE [--timeout SECONDS]
+browser connect --platform instagram --username HANDLE [--timeout SECONDS]
+browser disconnect
+browser publish WORK --platform instagram --username HANDLE --only STEMS
+                [--connection {dedicated,chrome}] [--execute] [--headed]
+                [--share-timeout SECONDS] [--retry-unshared]
+browser status WORK
+```
+
+`doctor` and `status` open no browser, and `doctor` runs no CLI command. `login` is for the
+dedicated profile only. It opens a headed window on that profile for a manual login and waits up
+to `--timeout` (30–3600, default 600) seconds for the page to show `HANDLE`. `connect` is for
+`--connection chrome`. It attaches the Playwright Extension in your main Chrome through the pinned
+`@playwright/cli@0.1.22`. It waits up to `--timeout` (default 120) seconds for your approval,
+then verifies `HANDLE` in a tab that Zunara opens and closes. `disconnect` detaches without
+closing Chrome. The main-Chrome connection needs Node.js `npx` and is not available on Windows. `publish` without `--execute` is an offline preview. With `--execute`, it re-checks
+the account on the page and publishes. `--share-timeout` (30–3600, default 300) bounds the wait
+for Instagram's confirmation. `--retry-unshared` allows only clips whose media was attached but
+never shared. `--connection` defaults to `dedicated`; `--headed` applies only there. Platforms
+other than `instagram` are rejected. Stops exit `2` with one of `login_required`,
+`checkpoint_required`, `account_mismatch`, `ui_changed`, `browser_unavailable`,
+`connection_required` or `unknown`. See [browser publishing](../guides/browser-publishing.md).
