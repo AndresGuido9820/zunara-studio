@@ -9,6 +9,7 @@ policy and every adapter receipt guard still apply. The adapters' own receipts d
 * ``waiting``: a native Instagram container is processing; the next run reads it with a GET and
   publishes it once Meta reports FINISHED. It is never recreated.
 * ``unknown`` / ``interrupted``: a remote write may have happened. Never retried automatically.
+  A crashed running job can resume only when its adapter receipt proves a safe continuation.
 * ``succeeded`` / ``failed`` / ``skipped`` / ``cancelled``: final.
 
 There is no daemon. Run ``zunara jobs run --execute`` from cron or a systemd timer.
@@ -243,7 +244,7 @@ def add(
         clash = [
             j["id"]
             for j in jobs
-            if _key(j) == _key(job) and j["state"] not in {"cancelled", "failed"}
+            if _key(j) == _key(job) and j["state"] not in {"cancelled", "failed", "skipped"}
         ]
         if clash:
             raise ValueError(f"A job for the same media and account already exists: {clash[0]}.")
@@ -335,7 +336,10 @@ def _native(job: dict[str, Any]) -> dict[str, Any] | None:
 
 def _browser(job: dict[str, Any]) -> dict[str, Any] | None:
     for record in browser.load_ledger(Path(job["workspace"]))["records"]:
-        if (record["username"], record["approved_sha256"]) == (
+        if record["platform"] == "instagram" and (
+            record["username"],
+            record["approved_sha256"],
+        ) == (
             job["identity"]["username"],
             job["frozen"]["approved_sha256"],
         ):
@@ -490,13 +494,16 @@ def _run_one(
         except (ValueError, OSError) as invalid:
             text = _message(invalid)
             if job["state"] == "waiting":  # A known container: left untouched, never recreated.
-                return {**job, "error": text}
+                return _update(
+                    settings, job["id"], {"waiting"}, error=text, checked_at=now.isoformat()
+                )
             return _update(
                 settings, job["id"], RUNNABLE, state="blocked", started_at=None, error=text
             )
         if step == "none":
             found = outcome(job)
-            assert found is not None  # nosec B101 - _step returned "none" only for a receipt.
+            # _step returns "none" only when a receipt exists.
+            assert found is not None  # nosec B101
             state = found[0] if job.get("started_at") else "skipped"
             return _update(
                 settings, job["id"], RUNNABLE, state=state, result=found[1], error=reason
@@ -579,10 +586,21 @@ def run(
     with scheduler_lock(settings):
         with jobs_lock(settings) as path:
             jobs = load(path)
-            for job in jobs:
-                if job["state"] == "running":  # A previous run ended mid-job: never retried.
-                    job.update(state="interrupted", updated_at=now.isoformat())
-            save(path, jobs)
+        # Read receipts without holding jobs_lock: enqueue takes workspace then jobs locks.
+        # Existing adapters persist intent before writes, so a known processing container
+        # can continue through finish; publishing/unknown receipts can never be resent.
+        for job in jobs:
+            if job["state"] != "running":
+                continue
+            try:
+                with workspace_lock(Path(job["workspace"])):
+                    recovered = outcome(job)
+            except (ValueError, OSError):
+                recovered = None
+            state, result = recovered or ("interrupted", None)
+            _update(settings, job["id"], {"running"}, state=state, result=result)
+        with jobs_lock(settings) as path:
+            jobs = load(path)
         due = sorted(
             (
                 j

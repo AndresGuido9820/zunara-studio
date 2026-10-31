@@ -47,14 +47,14 @@ zunara jobs cancel JOB_ID            # only pending or blocked jobs
 ```
 
 `--execute` takes a global scheduler lock, so two runs cannot overlap. It persists `running` before
-each remote call and then reads the adapter's own receipt to decide the outcome:
+each adapter invocation and then reads the adapter's own receipt to decide the outcome:
 
 | State | Meaning | Next run |
 | --- | --- | --- |
 | `pending` | Not due yet, or deferred by the daily cap | Runs when due |
 | `blocked` | Provably nothing was sent: setup missing, metadata changed, policy denied | Tried again |
-| `waiting` | Native Instagram container is processing | One GET, at most once a minute; publishes when `FINISHED` |
-| `running` | A run is in progress | Becomes `interrupted` if that run died |
+| `waiting` | Native Instagram container is processing | Checks processing at most once a minute; publishes when `FINISHED` |
+| `running` | A run is in progress | Reads existing receipts after a crash; otherwise `interrupted` |
 | `unknown`, `interrupted` | A write may have happened | Never retried; reconcile manually |
 | `succeeded`, `failed`, `skipped`, `cancelled` | Final | Never run again |
 
@@ -64,10 +64,17 @@ processing container is not a post. To resolve `unknown`/`interrupted`, use `zun
 WORK --refresh`, `zunara browser status WORK` or YouTube Studio. The adapter receipts stay the
 source of truth, and adapters still refuse duplicates.
 
+After a crash, the runner reads local receipts before deciding what to do. A known processing
+Instagram container resumes through `finish`; a confirmed outcome is saved without uploading
+again. A missing or unreadable receipt stays `interrupted`. A `publishing` or unknown receipt is
+held, never resent. A skipped job can be added again after its underlying receipt has been
+reconciled; the new job still checks every prior receipt before uploading.
+
 `--max-per-platform-day` (default 2) limits how many distinct clips per platform can **start** a
 write in one calendar day of `--timezone` (default UTC). Running, unknown, interrupted, failed and
 successful jobs count. Checking a native Instagram container that already exists does not count.
 Jobs over the limit stay `pending`. The limit counts only jobs, not manual uploads.
+The same clip sent to another account on the same platform does not use another slot.
 
 ## Periodic runs (disabled by default)
 

@@ -244,7 +244,7 @@ def parser() -> argparse.ArgumentParser:
     enqueue.add_argument(
         "--connection", choices=browser.CONNECTIONS, help="instagram-browser (default: dedicated)"
     )
-    job_steps.add_parser("list", help="Show jobs, their receipts and setup hints (offline)")
+    job_steps.add_parser("list", help="Show jobs, saved results and setup hints (offline)")
     stop = job_steps.add_parser("cancel", help="Cancel a pending or blocked job")
     stop.add_argument("job_id")
     due = job_steps.add_parser("run", help="Preview due jobs offline, or --execute them")

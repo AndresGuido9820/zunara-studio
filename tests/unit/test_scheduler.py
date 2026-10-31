@@ -412,12 +412,53 @@ def test_a_waiting_container_survives_revalidation_errors_without_writes(
     clock(monkeypatch, T0 + timedelta(hours=2))
     run(settings, Runner(lambda argv: native_receipt(work, "clip-01", "processing")))
     path = settings.data_dir / "scheduler" / "jobs.json"
-    before = path.read_bytes()
     set_row(work, "clip-01", description="edited")
     clock(monkeypatch, T0 + timedelta(hours=3))
     [job] = run(settings, Runner(refuse))
     assert job["state"] == "waiting" and "description changed" in job["error"]
-    assert path.read_bytes() == before
+    saved = json.loads(path.read_text())["jobs"][0]
+    assert saved["state"] == "waiting" and saved["error"] == job["error"]
+    assert saved["checked_at"] == (T0 + timedelta(hours=3)).isoformat()
+
+
+@pytest.mark.parametrize(
+    ("receipt", "expected", "calls"),
+    [("processing", "waiting", 1), ("published", "succeeded", 0), ("publishing", "unknown", 0)],
+)
+def test_crash_recovery_uses_receipts_without_repeating_writes(
+    settings: Settings,
+    work: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    receipt: str,
+    expected: str,
+    calls: int,
+) -> None:
+    job = scheduler.add(settings, work, "clip-01", "instagram", AT, IG)
+    native_receipt(work, "clip-01", receipt)
+    scheduler._update(settings, job["id"], {"pending"}, state="running", started_at=AT)
+    clock(monkeypatch, T0 + timedelta(hours=2))
+    runner = Runner()
+    result = scheduler.run(settings, runner, execute=True)
+    saved = scheduler.listing(settings)["jobs"][0]
+    assert saved["state"] == expected and len(runner.calls) == calls
+    if calls:
+        assert runner.calls[0][1] == "finish"  # Never recreate or re-upload the container.
+        assert result["jobs"][0]["result"]["container_id"] == "901"
+    scheduler.run(settings, Runner(refuse), execute=True)  # Terminal or recently checked.
+
+
+def test_a_skipped_job_can_be_requeued_after_manual_reconciliation(
+    settings: Settings, work: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = scheduler.add(settings, work, "clip-01", "youtube", AT, YT)
+    set_row(work, "clip-01", upload_state="uploading")
+    clock(monkeypatch, T0 + timedelta(hours=2))
+    assert run(settings, Runner(refuse))[0]["state"] == "skipped"
+    set_row(work, "clip-01", upload_state="pending")  # A person confirmed no upload existed.
+    later = "2030-01-01T20:00:00+00:00"
+    replacement = scheduler.add(settings, work, "clip-01", "youtube", later, YT)
+    assert replacement["id"] != job["id"]
+    assert scheduler.listing(settings)["jobs"][0]["state"] == "skipped"
 
 
 @pytest.mark.parametrize(
