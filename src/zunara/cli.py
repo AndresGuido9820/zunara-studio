@@ -59,7 +59,7 @@ def parser() -> argparse.ArgumentParser:
             )
     auth = commands.add_parser("auth", help="Authorize a YouTube channel using desktop OAuth")
     auth.add_argument("--channel", required=True)
-    render = commands.add_parser("render", help="Render from an existing workspace")
+    render = commands.add_parser("render", help="Render a local video or workspace VOD interval")
     render.add_argument("work", type=Path)
     render.add_argument("start", type=float)
     render.add_argument("end", type=float)

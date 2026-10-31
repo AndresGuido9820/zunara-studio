@@ -67,3 +67,39 @@ def test_asr_extra_installs_the_model_downloader():
         r.split(">")[0].split("[")[0] for r in project["project"]["optional-dependencies"]["asr"]
     ]
     assert "huggingface-hub" in names
+
+
+def test_missing_asr_extra_has_an_install_instruction(monkeypatch):
+    import sys
+
+    from zunara import render as renderer
+
+    monkeypatch.setattr(renderer, "_ASR", None)
+    monkeypatch.setitem(sys.modules, "onnx_asr", None)
+    with pytest.raises(ValueError, match="asr extra"):
+        renderer.asr_model()
+
+
+def test_uncached_offline_model_explains_recovery_without_private_payload(monkeypatch):
+    import sys
+    from types import ModuleType, SimpleNamespace
+
+    from zunara import render as renderer
+
+    class MissingWeights(Exception):
+        pass
+
+    def fail(*args, **kwargs):
+        raise MissingWeights("SYNTHETIC_PRIVATE_DOWNLOAD_PAYLOAD")
+
+    errors = ModuleType("huggingface_hub.errors")
+    errors.LocalEntryNotFoundError = MissingWeights
+    monkeypatch.setattr(renderer, "_ASR", None)
+    monkeypatch.setitem(sys.modules, "onnx_asr", SimpleNamespace(load_model=fail))
+    monkeypatch.setitem(sys.modules, "huggingface_hub", ModuleType("huggingface_hub"))
+    monkeypatch.setitem(sys.modules, "huggingface_hub.errors", errors)
+    with pytest.raises(ValueError) as error:
+        renderer.asr_model()
+    assert "HF_HUB_OFFLINE" in str(error.value)
+    assert "first download" in str(error.value)
+    assert "SYNTHETIC_PRIVATE_DOWNLOAD_PAYLOAD" not in str(error.value)
