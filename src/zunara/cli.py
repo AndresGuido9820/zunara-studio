@@ -12,7 +12,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from zunara import __version__, browser, browser_bridge, instagram, queue, social, youtube
+from zunara import (
+    __version__,
+    browser,
+    browser_bridge,
+    instagram,
+    queue,
+    scheduler,
+    social,
+    youtube,
+)
 from zunara.config import Settings
 from zunara.editorial import load_policy
 from zunara.media import probe
@@ -217,7 +226,61 @@ def parser() -> argparse.ArgumentParser:
     )
     browser_status = tasks.add_parser("status", help="Read browser publication receipts")
     browser_status.add_argument("work", type=Path)
+    jobs = commands.add_parser("jobs", help="Schedule approved clips and run due jobs locally")
+    job_steps = jobs.add_subparsers(dest="jobs_command", required=True)
+    enqueue = job_steps.add_parser("add", help="Schedule one approved clip (offline)")
+    enqueue.add_argument("work", type=Path)
+    enqueue.add_argument("--only", required=True, help="One clip stem")
+    enqueue.add_argument("--destination", required=True, choices=scheduler.DESTINATIONS)
+    enqueue.add_argument("--at", required=True, help="ISO datetime with a UTC offset")
+    enqueue.add_argument("--channel", help="youtube: local OAuth token alias")
+    enqueue.add_argument("--channel-id", help="youtube: exact UC… channel ID")
+    enqueue.add_argument(
+        "--privacy", choices=["private", "unlisted", "public"], help="youtube (default: private)"
+    )
+    enqueue.add_argument("--account-id", help="instagram: numeric account ID")
+    enqueue.add_argument("--username", help="instagram, instagram-browser: exact username")
+    enqueue.add_argument("--ai-generated", action="store_true", help="instagram: AI disclosure")
+    enqueue.add_argument(
+        "--connection", choices=browser.CONNECTIONS, help="instagram-browser (default: dedicated)"
+    )
+    job_steps.add_parser("list", help="Show jobs, saved results and setup hints (offline)")
+    stop = job_steps.add_parser("cancel", help="Cancel a pending or blocked job")
+    stop.add_argument("job_id")
+    due = job_steps.add_parser("run", help="Preview due jobs offline, or --execute them")
+    due.add_argument("--execute", action="store_true", help="Run due jobs; default is preview")
+    due.add_argument(
+        "--max-per-platform-day",
+        type=int,
+        default=scheduler.MAX_PER_DAY,
+        help=f"Distinct clips started per platform and day (default: {scheduler.MAX_PER_DAY})",
+    )
+    due.add_argument("--timezone", default="UTC", help="IANA zone for the daily cap (default: UTC)")
     return root
+
+
+def run_jobs(args: argparse.Namespace, settings: Settings) -> Any:
+    if args.jobs_command == "list":
+        return scheduler.listing(settings)
+    if args.jobs_command == "cancel":
+        return scheduler.cancel(settings, args.job_id)
+    if args.jobs_command == "run":
+        # Jobs go through the regular commands, so locks, topic policy and receipts all apply.
+        return scheduler.run(
+            settings,
+            lambda argv: run(parser().parse_args(argv)),
+            execute=args.execute,
+            max_per_day=args.max_per_platform_day,
+            timezone=args.timezone,
+        )
+    if "," in args.only:
+        raise ValueError("A job takes exactly one clip; add one job per clip.")
+    options = {
+        k: getattr(args, k)
+        for k in ("channel", "channel_id", "privacy", "account_id", "username", "connection")
+    }
+    options["ai_generated"] = args.ai_generated
+    return scheduler.add(settings, args.work, args.only.strip(), args.destination, args.at, options)
 
 
 def run_browser(args: argparse.Namespace, settings: Settings, only: set[str] | None) -> Any:
@@ -421,6 +484,8 @@ def run(args: argparse.Namespace) -> Any:
         return run_instagram(args, settings, only)
     if args.command == "browser":
         return run_browser(args, settings, only)
+    if args.command == "jobs":
+        return run_jobs(args, settings)
     if args.command == "render":
         if (
             not all(math.isfinite(v) for v in (args.start, args.end))

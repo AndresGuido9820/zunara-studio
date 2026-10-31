@@ -151,6 +151,18 @@ zunara browser publish /work/session --platform instagram --username YOUR_HANDLE
 # Add --execute to publish; zunara browser status /work/session reads receipts.
 ```
 
+## Local scheduling
+
+`zunara jobs` schedules approved clips for YouTube, native Instagram or the Instagram browser path.
+It runs due jobs through the same commands and never retries an ambiguous upload. No timer is
+installed; see [local scheduling](docs/guides/scheduling.md) for cron/systemd examples.
+
+```sh
+zunara jobs add /work/session --only clip-01 --destination youtube \
+  --at 2030-01-01T18:00:00-05:00 --channel main --channel-id UC...
+zunara jobs run            # offline preview; add --execute to run due jobs
+```
+
 ## Optional multi-platform service
 
 `zunara social` publishes approved media through Upload-Post without routine browser uploads.

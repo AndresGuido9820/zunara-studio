@@ -209,3 +209,25 @@ never shared. `--connection` defaults to `dedicated`; `--headed` applies only th
 other than `instagram` are rejected. Stops exit `2` with one of `login_required`,
 `checkpoint_required`, `account_mismatch`, `ui_changed`, `browser_unavailable`,
 `connection_required` or `unknown`. See [browser publishing](../guides/browser-publishing.md).
+
+## Local jobs
+
+```text
+jobs add WORK --only STEM --destination {youtube,instagram,instagram-browser,tiktok} --at ISO
+         [--channel ALIAS --channel-id UC… --privacy {private,unlisted,public}]
+         [--account-id ID --username NAME --ai-generated] [--username NAME --connection {dedicated,chrome}]
+jobs list
+jobs cancel JOB_ID
+jobs run [--execute] [--max-per-platform-day N] [--timezone IANA]
+```
+
+| Command | Result | Effects |
+| --- | --- | --- |
+| `jobs add` | The new job | Offline. Checks approval, caption and policy; freezes hash and metadata; `tiktok` is refused |
+| `jobs list` | `{"jobs": [...], "setup": {...}}` | Offline read of the private jobs file |
+| `jobs cancel` | The cancelled job | Only `pending` or `blocked` jobs |
+| `jobs run` | `{"mode": "preview", "due": [...], "remote_calls": 0}` | Offline: no token, browser or API call |
+| `jobs run --execute` | `{"mode": "execute", "jobs": [...]}` | Global lock; runs due jobs through the commands above |
+
+The daily cap defaults to 2 distinct clips per platform per day in `--timezone` (default `UTC`). See
+[local scheduling](../guides/scheduling.md) for states and recovery.
