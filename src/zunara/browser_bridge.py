@@ -235,6 +235,13 @@ class Cli:
             raise BridgeFailure("The Chrome bridge did not answer in time.") from None
         except OSError:
             raise _stop("browser_unavailable") from None
+        # The public CLI can fail before its JSON responder starts (missing extension).
+        if done.returncode and "Playwright Extension not found" in done.stderr + done.stdout:
+            raise browser.BrowserStop(
+                "connection_required",
+                "The official Playwright Extension was not found. Install it in your main "
+                "Chrome, then retry 'zunara browser connect'.",
+            )
         try:
             envelope = json.loads(done.stdout)
         except ValueError:

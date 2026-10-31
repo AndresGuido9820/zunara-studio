@@ -352,3 +352,17 @@ def test_bridge_dir_rejects_symlink_and_loose_permissions(tmp_path: Path):
 def test_session_names_are_restricted(tmp_path: Path, session: str):
     with pytest.raises(ValueError, match="session"):
         browser_bridge.Cli(tmp_path, session)
+
+
+def test_plaintext_missing_extension_error_is_actionable_and_sanitized(tmp_path: Path):
+    def missing(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            argv, 1, "", "Error: Playwright Extension not found in /private/example " + TOKEN
+        )
+
+    cli = browser_bridge.Cli(tmp_path, runner=missing, command=["playwright-cli"])
+    with pytest.raises(browser.BrowserStop) as caught:
+        cli.call(["attach", "--extension=chrome"], 5)
+    assert caught.value.status == "connection_required"
+    assert "Install it in your main Chrome" in str(caught.value)
+    assert TOKEN not in str(caught.value) and "/private/example" not in str(caught.value)
