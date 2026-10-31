@@ -51,6 +51,7 @@ flowchart LR
 | `instagram` | Meta account binding, verified local upload, processing and publication receipts | Treat a prepared container as a public post |
 | `browser` | Dedicated Chromium profile, page-verified identity, deterministic Instagram UI flow and receipts | Read cookies, reuse personal profiles, solve captchas or click an ambiguous control |
 | `browser_bridge` | Main-Chrome connection: pinned public Playwright CLI, Zunara-owned tab, run-code page operations | Read cookies or CLI internals, list or touch other tabs, close Chrome, prompt from unattended runs |
+| `scheduler` | Private jobs file, frozen approval/metadata, due runs through the CLI, outcomes from adapter receipts | Retry ambiguous writes, bypass adapter guards or install timers |
 | `social` | Provider account binding, HTTP submission, receipts and status reconciliation | Infer success from an accepted request or silently retry unknown uploads |
 | `signals`, `audio_match`, `rank_moments` | Audio/chat analysis and candidate ranking | Publish or claim editorial approval |
 | `render` | Captions, layout and encoding | Decide which claims are accurate |

@@ -39,3 +39,10 @@ optional service receipts. Preserve all of them during rollback. `inspect` adds 
 `audio_sample_rate` fields (null if absent/unknown); existing fields remain. Rendering now fixes AAC
 output at 48 kHz to prevent loudness normalization from leaving a 96/192 kHz stream. Existing
 videos are unchanged and may need a reviewed 48 kHz copy for native Reels.
+
+## Local job scheduling
+
+`zunara jobs` adds `DATA_DIR/scheduler/jobs.json`. It does not change any workspace format. Stop any
+other scheduler or browser runner before you enable it. Schedule from the original workspace with
+its receipts in place, since only the selected workspace's receipts are checked; copies are not
+indexed globally. Add jobs only for clips you select. See [local scheduling](guides/scheduling.md#moving-from-another-scheduler).
