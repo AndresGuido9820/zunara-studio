@@ -409,3 +409,119 @@ def test_receipt_records_caption_hash_not_profile_secrets(ready: Path, config: P
     text = (ready / "out" / browser.LEDGER).read_text()
     assert "cookie" not in text.lower() and str(config) not in text
     assert os.listdir(ready / "out").count(browser.LEDGER) == 1
+
+
+def run_chrome(work: Path, config: Path, ui: FakeUI, only: set[str]) -> dict[str, Any]:
+    items = browser.plan(work, only, USER, retry_unshared=False)
+    return browser.execute(
+        work,
+        config,
+        items,
+        username=USER,
+        headed=False,
+        share_timeout=30,
+        connect=connect_with(ui),
+        connection="chrome",
+    )
+
+
+def test_chrome_connection_reuses_lifecycle_without_profile_marker(work: Path, ready: Path):
+    fresh = work.parent / "fresh-config"  # No dedicated profile or login marker exists here.
+    ui = FakeUI(ready)
+    result = run_chrome(ready, fresh, ui, {"clip-01"})
+    [record] = result["records"]
+    assert (record["state"], record["connection"], record["headed"]) == (
+        "published",
+        "chrome",
+        None,
+    )
+    assert result["connection"] == "chrome"
+    assert ui.ledger_at["share"]["records"][0]["state"] == "sharing"
+    assert not (fresh / browser.PROFILE_ROOT / "instagram" / USER).exists()
+    again = FakeUI(ready)
+    assert run(ready, fresh, again, {"clip-01"})["mode"] == "nothing-to-do"  # Either connection.
+
+
+@pytest.mark.parametrize("blocker", ["login_required", "checkpoint_required"])
+def test_chrome_stops_point_to_main_chrome(ready: Path, config: Path, blocker: str):
+    ui = FakeUI(ready, blocker=blocker)
+    with pytest.raises(ValueError) as caught:
+        run_chrome(ready, config, ui, {"clip-01"})
+    message = str(caught.value)
+    assert blocker in message and "connection chrome" in message and "main Chrome" in message
+    assert "browser connect" in message and "browser login" not in message
+    assert ui.attached == []
+
+
+def test_chrome_account_mismatch_is_mandatory(ready: Path, config: Path):
+    ui = FakeUI(ready, username="someone.else")
+    with pytest.raises(ValueError, match="account_mismatch.*main Chrome"):
+        run_chrome(ready, config, ui, {"clip-01"})
+    assert ui.attached == []
+
+
+def test_chrome_bridge_lock_blocks_overlap(ready: Path, config: Path):
+    from zunara import browser_bridge
+
+    with browser_bridge.session_lock(config), pytest.raises(ValueError, match="in use"):
+        run_chrome(ready, config, FakeUI(ready), {"clip-01"})
+
+
+def test_cli_chrome_preview_is_offline_and_keeps_connection(
+    ready: Path, config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    from zunara import browser_bridge
+
+    monkeypatch.setenv("ZUNARA_CONFIG_DIR", str(config))
+
+    def refuse(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("no CLI call in preview")
+
+    monkeypatch.setattr(browser_bridge.Cli, "call", refuse)
+    base = ["browser", "publish", str(ready), "--platform", "instagram", "--username", USER]
+    cli.main([*base, "--only", "clip-01", "--connection", "chrome"])
+    shown = json.loads(capsys.readouterr().out)
+    assert shown["connection"] == "chrome" and shown["bridge"].startswith("unverified")
+    assert "--connection chrome --execute" in shown["next"][0]
+    with pytest.raises(SystemExit):
+        cli.main([*base, "--only", "clip-01", "--connection", "chrome", "--headed"])
+    assert "dedicated profile" in capsys.readouterr().err
+    cli.main(["browser", "doctor"])
+    report = json.loads(capsys.readouterr().out)
+    assert report["chrome_bridge"]["cli_package"] == "@playwright/cli@0.1.22"
+    assert report["chrome_bridge"]["bridge_connection"].startswith("not verified")
+
+
+def test_chrome_bridge_setup_failure_persists_stopped_receipts(
+    ready: Path, config: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import subprocess
+
+    from zunara import browser_bridge
+
+    monkeypatch.delenv(browser_bridge.TOKEN_ENV, raising=False)
+
+    def runner(argv: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 1, "not json https://x.test/secret", "")
+
+    bridge = browser_bridge.Cli(config, runner=runner, command=["playwright-cli"])
+    items = browser.plan(ready, {"clip-01"}, USER, retry_unshared=False)
+    with pytest.raises(ValueError) as caught:
+        browser.execute(
+            ready,
+            config,
+            items,
+            username=USER,
+            headed=False,
+            share_timeout=30,
+            connection="chrome",
+            connect=browser_bridge.connect_chrome(config, cli=bridge),
+        )
+    assert "connection_required" in str(caught.value) and "https://" not in str(caught.value)
+    assert "browser connect --platform instagram --username studio.clips" in str(caught.value)
+    [record] = records(ready)
+    assert (record["state"], record["status"], record["media_selected"]) == (
+        "stopped",
+        "connection_required",
+        False,
+    )

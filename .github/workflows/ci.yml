@@ -82,7 +82,10 @@ jobs:
           version: '0.11.18'
       - run: uv sync --locked --extra browser --group dev
       - run: uv run --no-sync playwright install --with-deps chromium
+      - run: npx --yes --package @playwright/cli@0.1.22 playwright-cli --version
       - run: uv run --no-sync pytest -m browser -q
+        env:
+          ZUNARA_TEST_PLAYWRIGHT_CLI: '1'
 
   dependencies:
     name: Dependency audit

@@ -64,9 +64,11 @@ STATUSES = (
     "account_mismatch",
     "ui_changed",
     "browser_unavailable",
+    "connection_required",
     "not_attempted",
     "unknown",
 )
+CONNECTIONS = ("dedicated", "chrome")
 # Chromium user-data roots that belong to the person's own browsers, never to Zunara.
 SYSTEM_PROFILES = (
     "~/.config/google-chrome",
@@ -351,7 +353,9 @@ class PlaywrightInstagram:
         return self.page.locator('[role="dialog"]')
 
     def _visible(self, locator: Any) -> list[Any]:
-        return [locator.nth(i) for i in range(locator.count()) if locator.nth(i).is_visible()]
+        # One count of visible matches: a single round trip, also through the Chrome bridge.
+        shown = locator.filter(visible=True)
+        return [shown.nth(i) for i in range(shown.count())]
 
     def _one(self, find: Callable[[], Any], what: str, timeout: float | None = None) -> Any:
         deadline = time.monotonic() + (self.step if timeout is None else timeout)
@@ -558,6 +562,7 @@ def load_ledger(work: Path) -> dict[str, Any]:
             or not isinstance(record.get("media_selected"), bool)
             or not isinstance(record.get("share_clicked"), bool)
             or not isinstance(record.get("file"), str)
+            or record.get("connection", "dedicated") not in CONNECTIONS
         ):
             raise ValueError(f"{LEDGER} contains an invalid record.")
         key = (record["platform"], record["username"], record["approved_sha256"])
@@ -660,42 +665,81 @@ def public(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{k: v for k, v in i.items() if k != "_row"} for i in items]
 
 
-def preview(config_dir: Path, work: Path, items: list[dict[str, Any]], username: str) -> Any:
-    profile = profile_dir(config_dir, "instagram", username, create=False)
+def preview(
+    config_dir: Path,
+    work: Path,
+    items: list[dict[str, Any]],
+    username: str,
+    connection: str = "dedicated",
+) -> Any:
     stems = [Path(i["file"]).stem for i in items if i["action"] == "publish"]
     command = (
         f"zunara browser publish {shlex.quote(str(work))} --platform instagram "
-        f"--username {username} --only {','.join(stems)} --execute"
+        f"--username {username} --only {','.join(stems)} --connection {connection} --execute"
     )
+    if connection == "chrome":
+        # Nothing is contacted: the bridge and the Instagram session are checked on execution.
+        where: dict[str, Any] = {"bridge": "unverified; preview contacts no browser"}
+    else:
+        profile = profile_dir(config_dir, "instagram", username, create=False)
+        # A profile directory is not proof of a live session; execution verifies it on the page.
+        where = {"profile_exists": (profile / MARKER).is_file()}
     return {
         "mode": "preview",
         "platform": "instagram",
         "username": username,
-        # A profile directory is not proof of a live session; execution verifies it on the page.
-        "profile_exists": (profile / MARKER).is_file(),
+        "connection": connection,
+        **where,
         "session": "unverified; preview opens no browser",
         "items": public(items),
         "next": [command] if stems else [],
     }
 
 
-def _message(status: str, username: str, fallback: str) -> str:
-    return MESSAGES.get(status, fallback).format(username=username)
+CHROME_MESSAGES = {
+    "login_required": (
+        "Instagram is not logged in to {username} in your main Chrome. Sign in there yourself, "
+        "then run 'zunara browser connect --platform instagram --username {username}'."
+    ),
+    "checkpoint_required": (
+        "Instagram is showing a checkpoint, verification or captcha in your main Chrome. "
+        "Resolve it there yourself, then run 'zunara browser connect --platform instagram "
+        "--username {username}'; Zunara never solves it."
+    ),
+    "account_mismatch": (
+        "Your main Chrome is logged into a different Instagram account than --username."
+    ),
+    "connection_required": (
+        "The Playwright Extension bridge to your main Chrome is not connected. Keep Chrome "
+        "running and run 'zunara browser connect --platform instagram --username {username}'."
+    ),
+    "browser_unavailable": (
+        "The Playwright CLI could not run. Install Node.js (npx) and check 'zunara browser doctor'."
+    ),
+}
 
 
-def _verify_identity(ui: InstagramUI, username: str) -> None:
+def _message(status: str, username: str, fallback: str, connection: str = "dedicated") -> str:
+    table = CHROME_MESSAGES if connection == "chrome" else MESSAGES
+    return table.get(status, fallback).format(username=username)
+
+
+def _verify_identity(ui: InstagramUI, username: str, connection: str = "dedicated") -> None:
     ui.open(HOME)
     blocker = ui.blocker()
     if blocker:
-        raise BrowserStop(blocker, _message(blocker, username, ""))
+        raise BrowserStop(blocker, _message(blocker, username, "", connection))
     found = ui.active_username(STEP_TIMEOUT)
     if found is None:
         blocker = ui.blocker() or "ui_changed"
         raise BrowserStop(
-            blocker, _message(blocker, username, "The profile link was not found; stopped.")
+            blocker,
+            _message(blocker, username, "The profile link was not found; stopped.", connection),
         )
     if found != username:
-        raise BrowserStop("account_mismatch", MESSAGES["account_mismatch"])
+        raise BrowserStop(
+            "account_mismatch", _message("account_mismatch", username, "", connection)
+        )
 
 
 def _publish_one(
@@ -753,8 +797,16 @@ def execute(
     headed: bool,
     share_timeout: float,
     connect: Connect | None = None,
+    connection: str = "dedicated",
 ) -> dict[str, Any]:
-    """Run the browser flow for the planned items. The caller holds the workspace lock."""
+    """Run the browser flow for the planned items. The caller holds the workspace lock.
+
+    ``connection="dedicated"`` drives the Zunara profile; ``"chrome"`` drives a Zunara-owned tab
+    in the person's main Chrome through the Playwright Extension bridge. Both share this
+    lifecycle, receipts and page operations.
+    """
+    if connection not in CONNECTIONS:
+        raise ValueError("--connection must be dedicated or chrome.")
     blocked = [i for i in items if i["action"] == "blocked"]
     if blocked:
         names = ", ".join(f"{i['file']} ({i['reason']})" for i in blocked)
@@ -763,8 +815,19 @@ def execute(
     if not pending:
         return {"mode": "nothing-to-do", "items": public(items)}
     ledger = load_ledger(work)
-    with profile_lock(config_dir, "instagram", username):
-        profile = profile_dir(config_dir, "instagram", username, create=False)
+    if connection == "chrome":
+        from zunara import browser_bridge  # Optional connector; imports no browser library.
+
+        lock = browser_bridge.session_lock(config_dir)
+        opener = connect or browser_bridge.connect_chrome(config_dir)
+    else:
+        lock = profile_lock(config_dir, "instagram", username)
+        opener = connect or connect_playwright
+    with lock:
+        if connection == "chrome":
+            profile = browser_bridge.bridge_dir(config_dir, create=True)
+        else:
+            profile = profile_dir(config_dir, "instagram", username, create=False)
         records = []
         for item in pending:
             sha = item["_row"]["approved_sha256"]
@@ -785,7 +848,8 @@ def execute(
                 "media_selected": False,
                 "share_clicked": False,
                 "permalink": None,
-                "headed": headed,
+                "connection": connection,
+                "headed": headed if connection == "dedicated" else None,
                 "created_at": _now(),
                 "updated_at": _now(),
             }
@@ -794,15 +858,15 @@ def execute(
         _save(work, ledger)  # Receipts exist before the browser opens.
         current: dict[str, Any] | None = None
         try:
-            if not (profile / MARKER).is_file():
+            if connection == "dedicated" and not (profile / MARKER).is_file():
                 raise BrowserStop("login_required", _message("login_required", username, ""))
-            with (connect or connect_playwright)(profile, headed) as ui:
+            with opener(profile, headed) as ui:
                 try:
                     for item, record in zip(pending, records, strict=True):
                         current = record
                         # Every item starts from a fresh home page with the identity re-read,
                         # which also dismisses the previous item's success dialog.
-                        _verify_identity(ui, username)
+                        _verify_identity(ui, username, connection)
                         _publish_one(work, ledger, ui, item, record, share_timeout)
                 except (BrowserStop, ValueError):
                     raise  # Our own sanitized stops, e.g. media changed since approval.
@@ -811,8 +875,9 @@ def execute(
                     status = "ui_changed"
                     with contextlib.suppress(Exception):
                         status = ui.blocker() or status
+                    fallback = "The page did not respond as expected."
                     raise BrowserStop(
-                        status, _message(status, username, "The page did not respond as expected.")
+                        status, _message(status, username, fallback, connection)
                     ) from None
         except BrowserStop as stop:
             for record in records:
@@ -830,11 +895,15 @@ def execute(
                     "rerun with --execute when resolved."
                 )
             )
-            raise ValueError(f"Browser publish stopped ({stop.status}): {stop}{note}") from None
+            detail = str(stop) or _message(stop.status, username, "", connection)
+            raise ValueError(
+                f"Browser publish stopped ({stop.status}, connection {connection}): {detail}{note}"
+            ) from None
     return {
         "mode": "execute",
         "platform": "instagram",
         "username": username,
+        "connection": connection,
         "items": public(items),
         "records": records,
     }

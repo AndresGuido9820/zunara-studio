@@ -32,12 +32,15 @@ def test_installed_cli_offers_browser_and_doctor_stays_offline(tmp_path: Path) -
 
     shown = run("browser", "--help")
     assert shown.returncode == 0
-    assert all(n in shown.stdout for n in ("doctor", "login", "publish", "status"))
+    assert all(
+        n in shown.stdout for n in ("doctor", "login", "connect", "disconnect", "publish", "status")
+    )
     doctor = run("browser", "doctor")
     assert doctor.returncode == 0, doctor.stderr
     report = json.loads(doctor.stdout)
     assert report["platforms"] == ["instagram"] and report["profiles"] == []
     assert report["live_session"].startswith("unknown")
+    assert report["chrome_bridge"]["token_source"] is None
     refused = run("browser", "login", "--platform", "tiktok", "--username", "someone")
     assert refused.returncode == 2 and "only instagram" in refused.stderr
     assert not (home / "config").exists()

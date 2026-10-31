@@ -138,9 +138,10 @@ zunara instagram publish /work/session --only clip-01 \
 
 ## Unattended Instagram browser publishing
 
-`zunara browser` publishes approved clips through a dedicated Chromium profile. You log in once
-yourself; later runs, for example from a timer, verify the account on the page and share without
-an agent. It stops at logins, checkpoints, captchas or unexpected UI, and never retries a share
+`zunara browser` publishes approved clips through a dedicated Chromium profile, or through your
+main, already logged-in Chrome using Microsoft's Playwright Extension (`--connection chrome`). You
+log in or connect once yourself. Later runs, for example from a timer, verify the account on the
+page and share without an agent. It stops at logins, checkpoints, captchas or unexpected UI, and never retries a share
 whose outcome is unknown. Only Instagram is supported. See [browser
 publishing](docs/guides/browser-publishing.md).
 

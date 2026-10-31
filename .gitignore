@@ -32,3 +32,12 @@ recordings/
 *.log
 *.lockfile
 .zunara.lock
+
+# Browser tooling may write page snapshots and traces.
+.playwright-cli/
+# Runtime credentials and authenticated browser data stay outside source control.
+browser-extension-token
+instagram-access-token
+upload-post-api-key
+browser-profiles/
+browser-bridge/

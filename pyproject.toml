@@ -50,7 +50,7 @@ omit = ["*/audio_match.py", "*/rank_moments.py", "*/fetch_vod.py"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src/zunara/config.py", "src/zunara/storage.py", "src/zunara/media.py", "src/zunara/queue.py", "src/zunara/youtube.py", "src/zunara/cli.py", "src/zunara/editorial.py", "src/zunara/social.py", "src/zunara/instagram.py", "src/zunara/browser.py"]
+files = ["src/zunara/config.py", "src/zunara/storage.py", "src/zunara/media.py", "src/zunara/queue.py", "src/zunara/youtube.py", "src/zunara/cli.py", "src/zunara/editorial.py", "src/zunara/social.py", "src/zunara/instagram.py", "src/zunara/browser.py", "src/zunara/browser_bridge.py"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 warn_unused_ignores = true

@@ -9,6 +9,7 @@ media, authorizes OAuth or posts to a real account. Tests generate their own tin
 | Contract | `tests/contracts` | YouTube request shape using a fake SDK; multi-platform HTTP payloads, account checks, asynchronous results and interrupted submissions using fake HTTP |
 | Integration | `tests/integration` | Installed CLI and real FFmpeg/ffprobe with synthetic media; no model downloads or Internet |
 | Browser | `tests/integration/test_browser_playwright.py` | Real Chromium and the production Playwright adapter against local fixture pages served by a test-only route; all other requests are aborted. Skipped without the `browser` extra and Chromium |
+| Browser bridge | `tests/unit/test_browser_bridge.py`, `tests/integration/test_browser_bridge_cli.py` | Unit tests use a fake CLI runner: argv, JSON envelopes, regex translation, token isolation and tab ownership. With `ZUNARA_TEST_PLAYWRIGHT_CLI=1`, the real pinned `@playwright/cli` drives isolated, uniquely named headless sessions with all non-fixture requests aborted; no test attaches to a real Chrome |
 
 Tests describe behavior rather than reproducing every implementation statement. Negative cases
 matter: path traversal and symlinks, changed media after approval, wrong channels, unknown upload

@@ -1,20 +1,29 @@
 # Unattended browser publishing (Instagram)
 
-`zunara browser` publishes approved clips to Instagram by driving the Instagram website in a
-dedicated Chromium profile. It needs no Meta developer app and no publishing subscription. After a
-person connects the profile once, the command runs by itself, for example from a timer. No agent
-has to click anything.
+`zunara browser` publishes approved clips to Instagram by driving the Instagram website. It needs
+no Meta developer app and no publishing subscription. After a person connects once, the command
+runs by itself, for example from a timer. No agent has to click anything.
 
 Only Instagram is implemented. Other platform names are rejected; they are not partially supported.
 
+There are two connections. Choose one with `browser publish --connection`:
+
+| Connection | Browser | Connect once with | Notes |
+| --- | --- | --- | --- |
+| `dedicated` (default) | Playwright's Chromium with a profile owned by Zunara | `browser login` | Works headless; you log in to that profile separately |
+| `chrome` | Your main, already logged-in Chrome, through Microsoft's Playwright Extension | `browser connect` | Chrome must stay running; Linux and macOS only |
+
+Both connections use the same safety checks, receipts and page steps described below.
+
 ## What it does and does not do
 
-- It uses Playwright's bundled Chromium with a profile that Zunara creates under
+- In `dedicated` mode, it uses Playwright's bundled Chromium with a profile that Zunara creates under
   `CONFIG_DIR/browser-profiles/instagram/USERNAME/`. Directories are owner-only (`0700`). Symlinked
   profile paths, directories Zunara did not create, and locations inside a personal Chrome,
   Chromium, Edge or Brave user-data directory are refused. Your everyday browser profile is never
   read or reused.
-- It never reads or exports cookies or tokens and never attaches to a running browser over CDP.
+- It never reads, copies or exports cookies, storage or passwords. It never attaches to a browser
+  over CDP. `chrome` mode connects only through the official extension, described below.
   It adds no stealth or automation-hiding flags, solves no captcha and uses no hidden endpoints.
   It runs no script provided by the page.
 - Logging in, two-factor codes, checkpoints and captchas are always done by a person in a visible
@@ -56,6 +65,50 @@ profile. A profile directory does not prove a live session: every publication ru
 Instagram sessions expire, and Instagram may ask for verification again at any time. Repeat
 `login` when a run reports `login_required` or `checkpoint_required`.
 
+## Or connect your main Chrome
+
+Use this when you prefer to stay logged in to Instagram in your everyday Chrome. Zunara never
+asks for or stores your Instagram password: a stored password would not stop Instagram from
+asking for a captcha or checkpoint either.
+
+1. Install [Playwright Extension](https://chromewebstore.google.com/detail/playwright-extension/mmlmfjhmonkocbjadbfplnigmagldckm)
+   by Microsoft from the Chrome Web Store, and log in to Instagram in Chrome yourself.
+2. Install Node.js so that `npx` is on `PATH`. Zunara runs the public, pinned
+   `@playwright/cli@0.1.22` through `npx --yes --package @playwright/cli@0.1.22 playwright-cli`.
+   The first run downloads that exact version from npm.
+3. Connect and verify the account:
+
+```sh
+zunara browser connect --platform instagram --username YOUR_HANDLE --timeout 120
+```
+
+`connect` attaches the fixed session `zunara-instagram` to the extension. Approve the connection
+in Chrome when the extension asks. Zunara then opens a new tab of its own and reads the handle
+from Instagram's profile link. It closes that tab and leaves the connection running.
+`zunara browser disconnect` detaches it; Chrome and your tabs keep running.
+
+How the bridge stays on its own tab:
+
+- Each run opens a new tab at a one-time `about:blank#zunara-…` address and claims it only when
+  the address matches exactly.
+- Every later page operation first checks that claim. Zunara operates on and closes only the
+  tab it claimed.
+- The CLI's `tab-new` output, which lists your open tabs, is discarded unread.
+- After successful CLI commands, Zunara deletes the returned page snapshot files. Transient
+  CLI files stay in the private `CONFIG_DIR/browser-bridge/` directory.
+
+The connection does not survive a Chrome restart or an extension disconnect. Unattended runs
+never prompt you and never launch a browser. They stop with `connection_required` unless you
+configured the extension's bridge token, either in `PLAYWRIGHT_MCP_EXTENSION_TOKEN` or in the
+owner-only file `CONFIG_DIR/browser-extension-token`. With the token, a run re-attaches by
+itself. The token is a capability for the extension bridge, not an Instagram credential. Zunara
+passes it only to the attach subprocess and never prints it. Keep it out of chats and
+repositories.
+
+Logins, checkpoints and captchas are resolved by you in your Chrome; afterwards run `connect`
+again. Your Instagram session there can still expire. The bridge is not available on Windows,
+where `npx` is a command-shell shim. The dedicated mode is unchanged there.
+
 ## Preview and publish
 
 [Review and approve](first-clip.md) the clip and its caption first. The caption comes from the
@@ -66,7 +119,9 @@ not text. The receipt keeps the caption's SHA-256 so you can audit what was sent
 zunara browser publish /work/session-01 --platform instagram --username YOUR_HANDLE \
   --only clip-01            # offline preview: no browser, no network
 zunara browser publish /work/session-01 --platform instagram --username YOUR_HANDLE \
-  --only clip-01 --execute  # opens the browser and publishes
+  --only clip-01 --execute  # dedicated profile
+zunara browser publish /work/session-01 --platform instagram --username YOUR_HANDLE \
+  --only clip-01 --connection chrome --execute  # your main Chrome
 ```
 
 Before opening the browser, the preview and execution both check the approved hash, the
@@ -89,7 +144,9 @@ earlier outcomes recorded by this runner, the native Instagram adapter, Upload-P
    permalink only if the confirmation shows one.
 
 Several clips run one after another in the same browser. Before each clip, the runner opens the
-home page again and re-checks the account. Use `--headed` to watch a run; the default is headless.
+home page again and re-checks the account. In dedicated mode, use `--headed` to watch a run; the
+default is headless. In `chrome` mode, the run happens in a tab of your visible Chrome. Each page
+step there is one CLI call, so a run takes a few minutes.
 
 ## Results and receipts
 
@@ -103,7 +160,9 @@ username and approved hash. Read it with `zunara browser status WORK`.
 | `sharing` / `unknown` | Share was clicked; success was not seen (timeout, error text, a checkpoint after sharing, or a crash) | Always blocked; never retried |
 | `published` | Instagram's success confirmation was seen | Skipped |
 
-A stop exits with code 2 and an actionable message. Raw browser errors are not shown, because they
+Each receipt records its `connection`. A stop exits with code 2 and an actionable message that
+names the connection; `chrome` stops point to your main Chrome and `browser connect`, not to
+`browser login`. `connection_required` is a stop before anything is attached and can be rerun. Raw browser errors are not shown, because they
 can contain URLs or page text. To resolve an `unknown` receipt, check the account manually. Then,
 while no command is running, back up the receipt file and edit that record yourself. There is no
 command that overrides it. Duplicate protection is per workspace. Upload-Post receipts name a
@@ -113,8 +172,8 @@ Instagram upload through `social publish`.
 ## Running from a timer
 
 The command is deterministic and suits a timer. Zunara has no daemon or queue worker. Commands
-for the same workspace or profile do not overlap: a second run fails quickly with "Workspace is
-busy" or "profile is in use". It does not wait. The examples below also prevent overlap at the
+for the same workspace, profile or Chrome bridge do not overlap: a second run fails quickly with
+"Workspace is busy", "profile is in use" or "Chrome bridge is in use". It does not wait. The examples below also prevent overlap at the
 scheduler level.
 
 ```ini
@@ -146,6 +205,9 @@ when asked, and reconcile `unknown` receipts. The timer does not guarantee that 
 the machine must be awake, Chromium must start, and the session must still be valid.
 
 ## Limitations
+
+- `chrome` mode needs Chrome to keep running with the extension connected. A timer cannot
+  re-approve a connection; without the bridge token it stops until you run `connect` again.
 
 - The selectors depend on Instagram's web UI and can stop working when it changes. In that case
   the run stops before Share with `ui_changed`.

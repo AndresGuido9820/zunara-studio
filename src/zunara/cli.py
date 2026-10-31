@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from zunara import __version__, browser, instagram, queue, social, youtube
+from zunara import __version__, browser, browser_bridge, instagram, queue, social, youtube
 from zunara.config import Settings
 from zunara.editorial import load_policy
 from zunara.media import probe
@@ -160,14 +160,26 @@ def parser() -> argparse.ArgumentParser:
     tasks = unattended.add_subparsers(dest="browser_command", required=True)
     tasks.add_parser("doctor", help="Check Playwright, Chromium and profiles; opens no browser")
     connect = tasks.add_parser(
-        "login", help="Open a headed window on the dedicated profile for a manual login"
+        "login",
+        help="Dedicated profile only: open a headed window on it for a manual login",
     )
+    bridge = tasks.add_parser(
+        "connect",
+        help="Main Chrome: attach the Playwright Extension and verify the logged-in account",
+    )
+    bridge.add_argument(
+        "--timeout",
+        type=float,
+        default=browser_bridge.ATTACH_TIMEOUT,
+        help="Seconds to wait for your approval in Chrome (default: 120)",
+    )
+    tasks.add_parser("disconnect", help="Detach from main Chrome; Chrome keeps running")
     run_post = tasks.add_parser(
         "publish", help="Preview offline, or explicitly publish approved clips in the browser"
     )
     run_post.add_argument("work", type=Path)
     run_post.add_argument("--only", required=True, help="Comma-separated clip stems")
-    for task in (connect, run_post):
+    for task in (connect, bridge, run_post):
         task.add_argument(
             "--platform", required=True, help="Destination; only instagram is supported"
         )
@@ -182,7 +194,15 @@ def parser() -> argparse.ArgumentParser:
         "--execute", action="store_true", help="Open the browser and publish; default is preview"
     )
     run_post.add_argument(
-        "--headed", action="store_true", help="Show the browser window (default: headless)"
+        "--connection",
+        choices=browser.CONNECTIONS,
+        default="dedicated",
+        help="dedicated: Zunara's own profile (default); chrome: your main Chrome via the bridge",
+    )
+    run_post.add_argument(
+        "--headed",
+        action="store_true",
+        help="Dedicated profile only: show the window (default: headless)",
     )
     run_post.add_argument(
         "--share-timeout",
@@ -203,7 +223,12 @@ def parser() -> argparse.ArgumentParser:
 def run_browser(args: argparse.Namespace, settings: Settings, only: set[str] | None) -> Any:
     command = args.browser_command
     if command == "doctor":
-        return browser.doctor(settings.config_dir)
+        return {
+            **browser.doctor(settings.config_dir),
+            "chrome_bridge": browser_bridge.doctor(settings.config_dir),
+        }
+    if command == "disconnect":
+        return browser_bridge.disconnect(settings.config_dir)
     if command == "status":
         with workspace_lock(args.work):
             return browser.status(args.work)
@@ -212,6 +237,11 @@ def run_browser(args: argparse.Namespace, settings: Settings, only: set[str] | N
     if command == "login":
         timeout = browser.check_timeout(args.timeout, "--timeout")
         return browser.login(settings.config_dir, username, timeout)
+    if command == "connect":
+        timeout = browser.check_timeout(args.timeout, "--timeout")
+        return browser_bridge.connect(settings.config_dir, username, timeout)
+    if args.connection == "chrome" and args.headed:
+        raise ValueError("--headed applies only to the dedicated profile.")
     share_timeout = browser.check_timeout(args.share_timeout, "--share-timeout")
     policy = load_policy(settings.config_dir)
     with workspace_lock(args.work):
@@ -219,7 +249,7 @@ def run_browser(args: argparse.Namespace, settings: Settings, only: set[str] | N
         # The topic policy is enforced before any browser is opened.
         policy.check("instagram", [i["_row"] for i in items if i["action"] == "publish"])
         if not args.execute:
-            return browser.preview(settings.config_dir, args.work, items, username)
+            return browser.preview(settings.config_dir, args.work, items, username, args.connection)
         return browser.execute(
             args.work,
             settings.config_dir,
@@ -227,6 +257,7 @@ def run_browser(args: argparse.Namespace, settings: Settings, only: set[str] | N
             username=username,
             headed=args.headed,
             share_timeout=share_timeout,
+            connection=args.connection,
         )
 
 
