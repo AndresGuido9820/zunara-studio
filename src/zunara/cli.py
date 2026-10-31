@@ -62,11 +62,16 @@ def parser() -> argparse.ArgumentParser:
     auth.add_argument("--channel", required=True)
     render = commands.add_parser("render", help="Render a local video or workspace VOD interval")
     render.add_argument("work", type=Path)
-    render.add_argument("start", type=float)
-    render.add_argument("end", type=float)
-    render.add_argument("--hook", required=True)
+    render.add_argument("start", type=float, help="Start time in seconds on the source timeline")
+    render.add_argument("end", type=float, help="Exclusive end time in seconds")
+    render.add_argument("--hook", required=True, help="Title burned into the top of the frame")
     render.add_argument("--name", required=True)
-    render.add_argument("--layout", choices=["4:3", "full"], default="4:3")
+    render.add_argument(
+        "--layout",
+        choices=["4:3", "full"],
+        default="4:3",
+        help="Foreground: center 4:3 crop (default) or full wide frame",
+    )
     render.add_argument(
         "--source",
         type=Path,

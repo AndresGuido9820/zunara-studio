@@ -364,7 +364,7 @@ def test_finish_publishes_only_ready_containers(work: Path) -> None:
     [record] = result["records"]
     assert record["state"] == "published" and record["media_id"] == MEDIA
     assert record["permalink"] == "https://www.instagram.com/reel/AbC_1/"
-    assert finish(work, Session(work))["items"][0]["action"] == "wait"
+    assert finish(work, Session(work))["items"][0]["action"] == "skip"
 
 
 def test_finish_rechecks_container_before_publishing(work: Path) -> None:
@@ -488,3 +488,23 @@ def test_unsupported_sample_rate_fails_before_auth(work: Path, fake_probe: dict[
     with pytest.raises(ValueError, match="48000 Hz AAC"):
         publish(work, session, execute=False)
     assert session.calls == [] and not (work / "out" / instagram.LEDGER).exists()
+
+
+def test_finished_outputs_are_terminal_and_offer_no_empty_next_step(work: Path) -> None:
+    publish(work, Session(work))
+    result = finish(work, Session(work))
+    assert result["items"][0]["state"] == "published"
+    assert result["items"][0]["action"] == "done"
+    repeat_session = Session(work)
+    again = publish(work, repeat_session)
+    assert again["next"] == [] and again["records"] == []
+    assert finish(work, repeat_session)["items"][0]["action"] == "skip"
+    assert repeat_session.posts() == []
+
+
+def test_next_hint_preserves_workspace_with_shell_characters() -> None:
+    import shlex
+
+    work = Path("/work/a b;literal")
+    hints = instagram.next_commands(work, IG, USER, ["clip-01"])
+    assert all(shlex.split(hint)[3] == str(work) for hint in hints)

@@ -16,6 +16,7 @@ import contextlib
 import json
 import os
 import re
+import shlex
 import stat
 import tempfile
 from datetime import UTC, datetime
@@ -309,10 +310,13 @@ def _earlier(
 
 
 def next_commands(work: Path, account_id: str, username: str, stems: list[str]) -> list[str]:
+    if not stems:
+        return []
     only = ",".join(stems)
+    quoted_work = shlex.quote(str(work))
     return [
-        f"zunara instagram status {work} --refresh",
-        f"zunara instagram finish {work} --only {only} --account-id {account_id} "
+        f"zunara instagram status {quoted_work} --refresh",
+        f"zunara instagram finish {quoted_work} --only {only} --account-id {account_id} "
         f"--username {username} --execute",
     ]
 
@@ -550,7 +554,10 @@ def finish_plan(work: Path, only: set[str], account_id: str, username: str) -> l
                 )
             item.update(action="check", container_id=record["container_id"])
         else:
-            item.update(action="wait", reason=f"state is {record['state']}")
+            completed = record["state"] in {"published", "api_published"}
+            item.update(
+                action="skip" if completed else "wait", reason=f"state is {record['state']}"
+            )
         items.append(item)
     return items
 
@@ -585,7 +592,13 @@ def finish(
         item.update(
             container_status=code,
             state=record["state"],
-            action="publish" if ready else "wait",
+            action=(
+                "publish"
+                if ready
+                else "skip"
+                if record["state"] in {"published", "api_published"}
+                else "wait"
+            ),
             **({} if ready else {"reason": f"container is {code}"}),
         )
         if not execute:
@@ -622,6 +635,12 @@ def finish(
         with contextlib.suppress(ValueError):
             _fill_permalink(client, record)
         _save(work, ledger)
+        item.update(
+            state=record["state"],
+            action="done",
+            media_id=record["media_id"],
+            permalink=record["permalink"],
+        )
         done.append(record)
     result = {"mode": "execute" if execute else "preview", "account": found}
     return {**result, "items": _public(items), **({"records": done} if execute else {})}
