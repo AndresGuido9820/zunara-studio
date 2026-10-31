@@ -31,3 +31,11 @@ before using them. Preserve both queue and API receipt files during rollback or 
 removing receipt state can permit duplicate submissions. Older versions ignore the new receipt
 file and cannot reconcile its remote requests. Do not use an old version to retry an unresolved
 API submission.
+
+## Native Instagram publication and audio inspection
+
+The native `instagram` commands add their own receipt file without rewriting direct YouTube or
+optional service receipts. Preserve all of them during rollback. `inspect` adds `audio_codec` and
+`audio_sample_rate` fields (null if absent/unknown); existing fields remain. Rendering now fixes AAC
+output at 48 kHz to prevent loudness normalization from leaving a 96/192 kHz stream. Existing
+videos are unchanged and may need a reviewed 48 kHz copy for native Reels.

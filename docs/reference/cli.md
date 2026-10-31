@@ -31,7 +31,7 @@ unknown stems are errors. Selection follows queue order, not the order written i
 | `inspect FILE` | Object shown below | Runs ffprobe; needs a readable video stream |
 
 ```json
-{"duration_s": 15.0, "width": 1280, "height": 720, "codec": "h264", "has_audio": true}
+{"duration_s": 15.0, "width": 1280, "height": 720, "codec": "h264", "has_audio": true, "audio_codec": "aac", "audio_sample_rate": 48000}
 ```
 
 Inspection reports media properties, not caption accuracy, rights or platform eligibility.
@@ -160,3 +160,25 @@ only returns preflight. A configured API key and connected provider accounts are
 Accepted processing and schedules remain distinct from provider-confirmed per-platform results.
 Requests with unknown outcomes are not automatically retried. The existing `publish` command uses
 Google directly and keeps its original contract.
+
+## Native Instagram API
+
+```text
+instagram doctor
+instagram account --account-id ID --username HANDLE [--api-version VERSION]
+instagram publish WORK --only STEMS --account-id ID --username HANDLE
+                  [--api-version VERSION] [--ai-generated] [--execute]
+instagram status WORK [--refresh]
+instagram finish WORK --only STEMS --account-id ID --username HANDLE
+                 [--api-version VERSION] [--execute]
+```
+
+`doctor` is offline. Publication preview checks the exact ID and username; it creates no container.
+`publish --execute` prepares a Reel container and transfers a verified local file. Processing is
+not publication. `status --refresh` only reads Meta state. `finish` previews final publication;
+`finish --execute` publishes an eligible prepared container. Default Graph version is `v26.0`.
+
+The Page token comes from `ZUNARA_INSTAGRAM_ACCESS_TOKEN`, then private
+`CONFIG_DIR/instagram-access-token`. The Facebook-Login local-file path needs a Page-linked
+professional account and an appropriately authorized Meta app. See [native
+publishing](../guides/native-publishing.md) for setup, state recovery and supported metadata.

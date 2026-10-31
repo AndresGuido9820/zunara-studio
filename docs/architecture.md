@@ -11,6 +11,10 @@ flowchart LR
     CLI --> Render[Render]
     CLI --> Queue[Review queue]
     CLI --> YouTube[YouTube adapter]
+    CLI --> Instagram[Native Instagram adapter]
+    Instagram --> Meta[Graph API + Meta upload host]
+    Instagram --> Queue
+    Instagram --> NativeReceipts[(Native Instagram receipts)]
     CLI --> Social[Multi-platform adapter]
     Social --> Queue
     Social --> Provider[Upload-Post API]
@@ -38,6 +42,7 @@ flowchart LR
 | `editorial` | Load and check the optional per-platform topic policy | Read workspaces or call platform APIs |
 | `media` | Run bounded `ffprobe` inspection | Invoke a shell |
 | `youtube` | OAuth, exact channel binding, previews, remote writes | Upload without explicit execution |
+| `instagram` | Meta account binding, verified local upload, processing and publication receipts | Treat a prepared container as a public post |
 | `social` | Provider account binding, HTTP submission, receipts and status reconciliation | Infer success from an accepted request or silently retry unknown uploads |
 | `signals`, `audio_match`, `rank_moments` | Audio/chat analysis and candidate ranking | Publish or claim editorial approval |
 | `render` | Captions, layout and encoding | Decide which claims are accurate |

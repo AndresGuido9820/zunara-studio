@@ -168,3 +168,18 @@ key. Status refresh can query that ID after an interrupted response, including u
 A definite request rejection may release its submission marker so configuration can be corrected;
 an uncertain transport outcome remains guarded. Preserve failed and unresolved receipts until the
 actual remote outcome has been reconciled.
+
+## Native Instagram state
+
+`out/instagram-publications.json` is a private version-1 receipt envelope with a `records` array.
+The duplicate key is account ID + approved media SHA-256, scoped to the workspace. Each record
+saves the filename, account username, Graph version, container/media identifiers, returned
+permalink, processing code, creation fields and local UTC timestamps. Null identifiers or URLs
+mean they have not been returned; they are never inferred from a filename.
+
+Creation/transfer/publication markers are persisted before their remote writes. A known container
+can be queried after interruption. A lost creation response with no container ID remains unresolved;
+do not remove its receipt or change workspaces merely to force a second upload. `published` has
+a returned media ID; `api_published` means Meta reported `PUBLISHED` for the container after a lost
+response, but the media ID/permalink is still unknown. Preserve both outcomes when moving or
+rolling back a workspace. See [native publishing](../guides/native-publishing.md).

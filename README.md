@@ -3,8 +3,8 @@
 [![CI](https://github.com/AndresGuido9820/zunara-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/AndresGuido9820/zunara-studio/actions/workflows/ci.yml)
 
 Cut local videos into captioned vertical clips, or find moments in streams using chat and audio
-signals. Review a local queue, then export clips, upload directly to YouTube, or publish through an optional
-multi-platform API.
+signals. Review a local queue, then export clips, publish directly through YouTube or Meta, or use an
+optional multi-platform service.
 
 Zunara is a Python command-line tool. It runs on your computer; it has no hosted backend or
 scheduler. Publishing is a separate, explicit step. Preview is the default. YouTube uploads default to private;
@@ -121,7 +121,22 @@ guide](docs/guides/youtube.md) for state recovery and the adapter's fixed upload
 The policy is checked by the CLI. Calling `zunara.queue.export` or `zunara.youtube.upload` directly
 from Python does not apply it; call `zunara.editorial.load_policy(...).check(...)` first.
 
-## Multi-platform API publishing
+## Direct Instagram publishing
+
+Use your own Meta app and Page-linked professional account to upload approved local videos
+straight to Meta. `zunara instagram` separates upload, processing checks and final publication;
+no publishing subscription or public video server is required. One-time app permissions and
+account authorization are still necessary. See [native publishing](docs/guides/native-publishing.md)
+for setup, commands and TikTok's separate approval limits.
+
+```sh
+zunara instagram doctor
+zunara instagram publish /work/session --only clip-01 \
+  --account-id IG_ACCOUNT_ID --username YOUR_HANDLE
+# --execute prepares the upload; instagram finish handles publication after processing.
+```
+
+## Optional multi-platform service
 
 `zunara social` publishes approved media through Upload-Post without routine browser uploads.
 Connect your accounts once with the provider, configure an API key privately, and preview the exact
@@ -186,7 +201,7 @@ proposes moments; it does not judge whether a clip is accurate or worth publishi
 | --- | --- |
 | YouTube | Direct OAuth upload and scheduling, or optional Upload-Post API |
 | TikTok | Local export, or Upload-Post API with an eligible paid plan |
-| Instagram | Local export, or optional Upload-Post API |
+| Instagram | Direct Meta local-file upload, local export, or optional Upload-Post API |
 | X | Local export, or optional Upload-Post API; provider link-post pricing applies |
 
 API access, account eligibility and platform limits are separate from installing Zunara. Use media

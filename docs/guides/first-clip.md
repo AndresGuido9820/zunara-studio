@@ -15,7 +15,8 @@ mkdir -p "$WORK"
 uv run --no-sync zunara inspect ~/Videos/interview.mp4
 ```
 
-`inspect` reports `duration_s`, `width`, `height`, `codec` and `has_audio`.
+`inspect` reports duration, video dimensions/codec, whether audio is present, its codec and sample
+rate. Audio fields are null for an input without audio.
 
 ## 2. Render
 

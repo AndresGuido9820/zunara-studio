@@ -103,6 +103,12 @@ workspaces, media and credentials outside the checkout.
 
 Next: [make your first clip](first-clip.md).
 
+## Native publication
+
+The native Instagram adapter uses the existing HTTP dependency. It needs your own Meta app and
+Page access token, not a paid publishing subscription. YouTube still uses the `youtube` extra.
+See [native publishing](native-publishing.md) for credentials and platform-specific prerequisites.
+
 ## Optional publication service
 
 The multi-platform `social` commands use the existing `requests` dependency. They require an

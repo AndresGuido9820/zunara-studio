@@ -318,6 +318,8 @@ def render(
                     "aac",
                     "-b:a",
                     "160k",
+                    "-ar",
+                    "48000",
                     "-af",
                     "loudnorm=I=-14:TP=-1.5:LRA=11",
                     "-movflags",
