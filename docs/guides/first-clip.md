@@ -85,7 +85,7 @@ ready-2026-10-30/tiktok/interview-2026-10/
   [topic policy](../reference/workspace.md#topic-policy) applies. The files are the same for every
   platform.
 
-Export doesn't post anything; you upload the files through each platform's own app or website. Only
-YouTube has a direct uploader; see the [YouTube guide](youtube.md). If a step fails, see
+Export does not post anything. Use the [multi-platform API](social-api.md), the
+[direct YouTube uploader](youtube.md), or the destination platform's own upload interface. If a step fails, see
 [troubleshooting](troubleshooting.md). All queue fields are in the [workspace
 reference](../reference/workspace.md).

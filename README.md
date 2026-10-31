@@ -3,11 +3,12 @@
 [![CI](https://github.com/AndresGuido9820/zunara-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/AndresGuido9820/zunara-studio/actions/workflows/ci.yml)
 
 Cut local videos into captioned vertical clips, or find moments in streams using chat and audio
-signals. Review a local queue, then export clips or upload them to your YouTube channel.
+signals. Review a local queue, then export clips, upload directly to YouTube, or publish through an optional
+multi-platform API.
 
 Zunara is a Python command-line tool. It runs on your computer; it has no hosted backend or
-scheduler. Publishing is a separate, explicit step. Preview is the default and uploads are private
-unless requested.
+scheduler. Publishing is a separate, explicit step. Preview is the default. YouTube uploads default to private;
+Instagram and TikTok use their publication settings.
 
 For a first render, follow [Make your first clip](docs/guides/first-clip.md). The [documentation
 index](docs/README.md) covers dependencies, agent operation, command/queue reference and recovery.
@@ -120,6 +121,21 @@ guide](docs/guides/youtube.md) for state recovery and the adapter's fixed upload
 The policy is checked by the CLI. Calling `zunara.queue.export` or `zunara.youtube.upload` directly
 from Python does not apply it; call `zunara.editorial.load_policy(...).check(...)` first.
 
+## Multi-platform API publishing
+
+`zunara social` publishes approved media through Upload-Post without routine browser uploads.
+Connect your accounts once with the provider, configure an API key privately, and preview the exact
+profile/account selection before adding `--execute`. See the [API publishing
+guide](docs/guides/social-api.md) for commands, pricing, setup and interrupted-request recovery.
+TikTok requires a paid provider plan; Zunara does not purchase a subscription. The existing direct
+YouTube adapter remains available independently.
+
+```sh
+uv run --no-sync zunara social doctor
+uv run --no-sync zunara social accounts
+uv run --no-sync zunara social status ~/Videos/my-clips --refresh
+```
+
 ## Find and render moments
 
 The [rendering guide](docs/guides/rendering.md) connects these stages using one workspace. Fetch
@@ -168,10 +184,10 @@ proposes moments; it does not judge whether a clip is accurate or worth publishi
 
 | Platform | Current support |
 | --- | --- |
-| YouTube | OAuth, channel verification, upload preview, private/public/unlisted uploads and scheduling |
-| TikTok | Local video and caption export; no direct posting integration |
-| Instagram | Local video and caption export; no direct posting integration |
-| X | Local video and caption export; no direct posting integration |
+| YouTube | Direct OAuth upload and scheduling, or optional Upload-Post API |
+| TikTok | Local export, or Upload-Post API with an eligible paid plan |
+| Instagram | Local export, or optional Upload-Post API |
+| X | Local export, or optional Upload-Post API; provider link-post pricing applies |
 
 API access, account eligibility and platform limits are separate from installing Zunara. Use media
 you own or have permission to publish. An exported clip is not a copyright clearance.

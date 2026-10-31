@@ -11,7 +11,8 @@ session-01/
   out/
     clip-01.mp4          # rendered video, or a finished video copied here
     clip-01.ass          # optional render sidecar; captions are already burned into MP4
-    queue.json          # metadata, media hashes and upload state
+    queue.json          # metadata, media hashes and direct YouTube upload state
+    social-publications.json  # optional multi-platform API receipts
     .zunara.lock        # queue/export/upload coordination
 ```
 
@@ -127,5 +128,43 @@ malformed files are errors. No file, an empty `platforms` object or an omitted p
 unrestricted. A restricted destination refuses a missing/disallowed topic. Export checks every
 selected row; publish checks selected rows without a `youtube_id`. This checks labels, not the
 meaning of a video. The CLI checks before export writes a batch or publish opens a YouTube client.
+`social publish` checks the selected destinations that still need submission before loading its key
+or making provider requests. Direct calls to the adapter also need that policy check at the caller.
 Direct Python calls to `queue.export` and `youtube.upload` do not load policy automatically; library
 callers must apply `editorial.load_policy(...).check(...)`.
+
+## Multi-platform API state
+
+The optional `social` adapter stores private receipts in `out/social-publications.json`, using the
+same workspace lock. Each submission associates the approved media hash with the provider profile,
+destination platform, expected connected account and remote request/job identifiers. These records
+are separate from `queue.json` and must be preserved when moving a workspace. Submission markers
+protect against an interrupted request being silently sent again. The guard is local to that
+workspace; it does not discover copies in another workspace or posts created in another tool.
+
+The API key comes from `UPLOAD_POST_API_KEY`, then `CONFIG_DIR/upload-post-api-key`. It is never a
+queue field or receipt field. See [API publishing](../guides/social-api.md) before handling an
+unresolved submission or configuring a provider account.
+
+The receipt envelope has `version: 1` and a `records` array. Each record has:
+
+| Field | Meaning |
+| --- | --- |
+| `profile`, `platform`, `approved_sha256` | Per-workspace duplicate key: provider profile, destination and approved media bytes |
+| `file`, `account` | Source filename and the exact connected identifier selected at submission |
+| `state` | `submitting`, `unknown`, `accepted`, `scheduled`, `completed` or `failed` |
+| `request_id`, `job_id` | Client/provider request or scheduling identifiers, used for polling |
+| `idempotency_key` | Unique submission key sent to the provider to suppress a repeated request |
+| `platform_post_id`, `post_url` | Optional provider-confirmed result; not proof of public playback |
+| `scheduled_at` | Requested schedule with a UTC offset, or null for an immediate submission |
+| `privacy`, `language` | Requested YouTube privacy and optional language metadata |
+| `delivery` | When present, identifies an inbox draft rather than a completed post |
+| `created_at`, `updated_at` | Local UTC receipt timestamps; not inferred publication dates |
+
+An absent result field means the provider has not returned that result. `completed` means a
+per-platform success with an ID or URL; `accepted` can still await processing or moderation.
+The client generates a request ID before submission and also sends it as the provider's idempotency
+key. Status refresh can query that ID after an interrupted response, including unresolved records.
+A definite request rejection may release its submission marker so configuration can be corrected;
+an uncertain transport outcome remains guarded. Preserve failed and unresolved receipts until the
+actual remote outcome has been reconciled.

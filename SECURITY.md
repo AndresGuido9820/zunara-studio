@@ -11,6 +11,11 @@ The CLI runs with your user permissions. Use trusted workspaces and media. Keep 
 Tokens are private JSON in your config directory. Review the requested OAuth permissions, use
 the exact channel ID and revoke access through your Google account when it is no longer needed.
 
+The optional social publisher sends selected media and metadata to Upload-Post. Its API key comes
+from the process environment or a private config file; redirects are refused, provider error payloads
+are not printed, and uncertain submissions are polled rather than silently re-uploaded. Revoke the
+provider key and linked social grants through their respective account settings when needed.
+
 Static checks and dependency audits reduce risk; they do not prove that media decoders, platform
 services or all dependencies are vulnerability-free. This project does not bypass platform eligibility,
 copyright controls or verification. CI does not have platform credentials and never uploads videos.

@@ -8,10 +8,11 @@ import math
 import shutil
 import subprocess  # nosec B404
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from zunara import __version__, queue, youtube
+from zunara import __version__, queue, social, youtube
 from zunara.config import Settings
 from zunara.editorial import load_policy
 from zunara.media import probe
@@ -86,6 +87,40 @@ def parser() -> argparse.ArgumentParser:
     rank = commands.add_parser("rank", help="Rank candidate moments in a VOD workspace")
     rank.add_argument("work", type=Path, help="Workspace containing analysis inputs")
     rank.add_argument("top_n", type=int, nargs="?", default=15, help="Positive count (default: 15)")
+    social_parser = commands.add_parser("social", help="Publish through the Upload-Post API")
+    actions = social_parser.add_subparsers(dest="social_command", required=True)
+    actions.add_parser("doctor", help="Check API key configuration offline")
+    actions.add_parser("accounts", help="List provider profiles and connected account IDs")
+    post = actions.add_parser("publish", help="Preview or explicitly execute API uploads")
+    post.add_argument("work", type=Path)
+    post.add_argument("--only", required=True, help="Comma-separated clip stems")
+    post.add_argument("--profile", required=True, help="Upload-Post profile username")
+    post.add_argument(
+        "--platform", action="append", required=True, choices=social.PLATFORMS, help="Repeatable"
+    )
+    post.add_argument(
+        "--account",
+        action="append",
+        default=[],
+        metavar="PLATFORM=ID",
+        help="Exact connected account username or handle; one per platform",
+    )
+    post.add_argument("--schedule", help="Future ISO datetime with a UTC offset")
+    post.add_argument("--language", help="YouTube metadata language (BCP-47); omitted by default")
+    post.add_argument(
+        "--privacy",
+        default="private",
+        choices=["private", "unlisted", "public"],
+        help="YouTube privacy (default: private)",
+    )
+    post.add_argument(
+        "--execute", action="store_true", help="Perform remote uploads; default is preview"
+    )
+    social_status = actions.add_parser("status", help="Read API publication receipts")
+    social_status.add_argument("work", type=Path)
+    social_status.add_argument(
+        "--refresh", action="store_true", help="Query provider status for saved request IDs"
+    )
     return root
 
 
@@ -93,6 +128,47 @@ def require_workspace_files(work: Path, names: tuple[str, ...]) -> None:
     missing = [name for name in names if not (work / name).is_file()]
     if missing:
         raise ValueError(f"Missing workspace input(s): {', '.join(missing)}")
+
+
+def run_social(args: argparse.Namespace, settings: Settings, only: set[str] | None) -> Any:
+    if args.social_command == "doctor":
+        return {
+            **social.key_status(settings.config_dir),
+            "api": social.API,
+            "live_auth": "unknown; doctor sends no requests",
+            "setup": social.SETUP,
+        }
+    if args.social_command == "accounts":
+        return social.accounts(social.Client(social.load_key(settings.config_dir)))
+    if args.social_command == "status":
+        with workspace_lock(args.work):
+            client = social.Client(social.load_key(settings.config_dir)) if args.refresh else None
+            return social.status(args.work, client)
+    if len(set(args.platform)) != len(args.platform):
+        raise ValueError("--platform lists a platform more than once.")
+    expected = social.parse_accounts(args.account, args.platform)
+    schedule = social.parse_schedule(args.schedule, datetime.now(UTC))
+    policy = load_policy(settings.config_dir)
+    with workspace_lock(args.work):
+        items = social.plan(args.work, only or set(), args.platform, args.profile, expected)
+        uploads = [i for i in items if i["action"] == "upload"]
+        for platform in args.platform:
+            # The topic policy is enforced per destination before the key is read or sent.
+            policy.check(platform, [i["_row"] for i in uploads if i["platform"] == platform])
+        if not uploads:
+            public = [{k: v for k, v in i.items() if k != "_row"} for i in items]
+            return {"mode": "nothing-to-do", "items": public}
+        return social.publish(
+            args.work,
+            social.Client(social.load_key(settings.config_dir)),
+            items,
+            profile=args.profile,
+            expected=expected,
+            schedule=schedule,
+            privacy=args.privacy,
+            language=args.language,
+            execute=args.execute,
+        )
 
 
 def run(args: argparse.Namespace) -> Any:
@@ -151,6 +227,8 @@ def run(args: argparse.Namespace) -> Any:
                 every_hours=args.every_hours,
                 execute=args.execute,
             )
+    if args.command == "social":
+        return run_social(args, settings, only)
     if args.command == "render":
         if (
             not all(math.isfinite(v) for v in (args.start, args.end))

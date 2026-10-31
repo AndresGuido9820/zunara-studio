@@ -1,7 +1,8 @@
 # YouTube uploads
 
 Use this after [reviewing and approving a local clip](first-clip.md). This adapter talks to YouTube;
-exports for the other platforms are local files only. Keep rendering and YouTube extras installed:
+for a multi-platform service, see the separate [API publishing guide](social-api.md). Keep rendering
+and YouTube extras installed:
 
 ```sh
 uv sync --locked --no-dev --extra asr --extra youtube

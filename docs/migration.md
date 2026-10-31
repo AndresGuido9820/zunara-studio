@@ -22,3 +22,12 @@ explicitly; there is no fallback to another project's credentials.
 The earlier blog, product-generation, social text templates, stream monitor and MCP server are
 not part of this release. They remain in the original folder and have not been audited as supported
 Zunara features. This repository is the clip tool, not a rebrand of every unrelated script.
+
+## Optional multi-platform publication
+
+Existing queues and direct YouTube commands continue to work. The `social` commands add a separate
+API receipt file only when publication executes. Configure the provider key and connect accounts
+before using them. Preserve both queue and API receipt files during rollback or workspace moves;
+removing receipt state can permit duplicate submissions. Older versions ignore the new receipt
+file and cannot reconcile its remote requests. Do not use an old version to retry an unresolved
+API submission.

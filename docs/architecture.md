@@ -11,6 +11,11 @@ flowchart LR
     CLI --> Render[Render]
     CLI --> Queue[Review queue]
     CLI --> YouTube[YouTube adapter]
+    CLI --> Social[Multi-platform adapter]
+    Social --> Queue
+    Social --> Provider[Upload-Post API]
+    Social --> Receipts[(Workspace API receipts)]
+    Social --> Key[(Private provider key)]
     Analysis --> Workspace[(User workspace)]
     Render --> FFmpeg[FFmpeg + optional ASR]
     Render --> Workspace
@@ -33,6 +38,7 @@ flowchart LR
 | `editorial` | Load and check the optional per-platform topic policy | Read workspaces or call platform APIs |
 | `media` | Run bounded `ffprobe` inspection | Invoke a shell |
 | `youtube` | OAuth, exact channel binding, previews, remote writes | Upload without explicit execution |
+| `social` | Provider account binding, HTTP submission, receipts and status reconciliation | Infer success from an accepted request or silently retry unknown uploads |
 | `signals`, `audio_match`, `rank_moments` | Audio/chat analysis and candidate ranking | Publish or claim editorial approval |
 | `render` | Captions, layout and encoding | Decide which claims are accurate |
 | `fetch_vod` | Optional acquisition into user-selected storage | Store downloads in the installed package |
@@ -89,6 +95,20 @@ the YouTube client, so a denied batch never authenticates. `queue.export` and `y
 not read the policy; library callers must call `editorial.load_policy(config_dir).check(platform,
 rows)` themselves. The policy is an editorial guard rail, not access control: anyone who can edit
 the queue or the config file can change topics.
+
+## Multi-platform API boundary
+
+The optional Upload-Post adapter uses fixed HTTPS endpoints and a privately configured API key.
+The CLI checks the existing topic policy for every destination before opening the adapter. Media
+approval and expected connected-account identifiers are checked before any upload. A verified
+temporary copy provides the upload bytes. Workspace receipts record intent before the remote write;
+a dropped response stays unresolved so a later invocation cannot blindly resend it. The client
+request ID and idempotency key are persisted before submission, allowing read-only reconciliation.
+
+Provider scheduling and asynchronous processing live outside this process. Status refresh is a
+read request, not a resubmission. Per-platform outcomes remain separate: a successful destination
+does not make a failed one successful. These local records are not a transaction with the provider
+or a global registry across workspaces. See the [API publishing guide](guides/social-api.md).
 
 ## Time and resources
 
