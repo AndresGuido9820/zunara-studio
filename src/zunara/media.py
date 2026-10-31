@@ -35,10 +35,19 @@ def probe(path: Path) -> dict[str, Any]:
     video = next((s for s in data["streams"] if s["codec_type"] == "video"), None)
     if video is None:
         raise ValueError("File has no video stream.")
+    audio = next((s for s in data["streams"] if s["codec_type"] == "audio"), None)
     return {
         "duration_s": float(data["format"]["duration"]),
         "width": video["width"],
         "height": video["height"],
         "codec": video["codec_name"],
-        "has_audio": any(s["codec_type"] == "audio" for s in data["streams"]),
+        "has_audio": audio is not None,
+        "audio_codec": audio["codec_name"] if audio else None,
+        "audio_sample_rate": _rate(audio),
     }
+
+
+def _rate(stream: dict[str, Any] | None) -> int | None:
+    """ffprobe reports sample_rate as a decimal string; anything else is unknown."""
+    value = stream.get("sample_rate") if stream else None
+    return int(value) if isinstance(value, str) and value.isdigit() else None

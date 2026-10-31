@@ -15,7 +15,7 @@ def ffprobe_output(streams: list[dict[str, Any]], duration: str = "12.5") -> str
 
 
 VIDEO = {"codec_type": "video", "codec_name": "h264", "width": 1080, "height": 1920}
-AUDIO = {"codec_type": "audio", "codec_name": "aac"}
+AUDIO = {"codec_type": "audio", "codec_name": "aac", "sample_rate": "48000"}
 
 
 class FakeFfprobe:
@@ -61,7 +61,19 @@ def test_probe_parses_video_and_audio(fake_ffprobe: FakeFfprobe, tmp_path: Path)
         "height": 1920,
         "codec": "h264",
         "has_audio": True,
+        "audio_codec": "aac",
+        "audio_sample_rate": 48000,
     }
+
+
+@pytest.mark.parametrize(("rate", "expected"), [("96000", 96000), ("n/a", None), (None, None)])
+def test_probe_reports_audio_sample_rate(
+    fake_ffprobe: FakeFfprobe, tmp_path: Path, rate: str | None, expected: int | None
+) -> None:
+    audio = {**AUDIO, "sample_rate": rate} if rate else {"codec_type": "audio", "codec_name": "aac"}
+    fake_ffprobe.stdout = ffprobe_output([VIDEO, audio])
+
+    assert media.probe(tmp_path / "a.mp4")["audio_sample_rate"] == expected
 
 
 def test_probe_reports_missing_audio(fake_ffprobe: FakeFfprobe, tmp_path: Path) -> None:

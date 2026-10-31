@@ -116,6 +116,7 @@ def test_local_source_renders_selected_segment(
     audio = next(s for s in info["streams"] if s["codec_type"] == "audio")
     assert (video["codec_name"], video["width"], video["height"]) == ("h264", 1080, 1920)
     assert audio["codec_name"] == "aac"
+    assert audio["sample_rate"] == "48000"
     assert float(info["format"]["duration"]) == pytest.approx(2.0, abs=0.15)
     ass = (work / "out" / "clip.ass").read_text(encoding="utf-8")
     assert "HOLA" in ass and "MUNDO" in ass

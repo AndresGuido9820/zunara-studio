@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from zunara import __version__, queue, social, youtube
+from zunara import __version__, instagram, queue, social, youtube
 from zunara.config import Settings
 from zunara.editorial import load_policy
 from zunara.media import probe
@@ -121,6 +121,34 @@ def parser() -> argparse.ArgumentParser:
     social_status.add_argument(
         "--refresh", action="store_true", help="Query provider status for saved request IDs"
     )
+    native = commands.add_parser("instagram", help="Publish Reels natively via the Graph API")
+    steps = native.add_subparsers(dest="instagram_command", required=True)
+    steps.add_parser("doctor", help="Check access token configuration offline")
+    account = steps.add_parser("account", help="Verify the token's Instagram account (GET only)")
+    for name in ("publish", "finish"):
+        helps = {
+            "publish": "Preview, or explicitly create and upload Reels containers",
+            "finish": "Preview (GET only), or explicitly publish containers that finished processing",
+        }
+        step = steps.add_parser(name, help=helps[name])
+        step.add_argument("work", type=Path)
+        step.add_argument("--only", required=True, help="Comma-separated clip stems")
+    for step in (account, steps.choices["publish"], steps.choices["finish"]):
+        step.add_argument("--account-id", required=True, help="Numeric Instagram account ID")
+        step.add_argument("--username", required=True, help="Exact Instagram username")
+        step.add_argument("--api-version", default=instagram.API_VERSION)
+    for name in ("publish", "finish"):
+        steps.choices[name].add_argument(
+            "--execute", action="store_true", help="Perform remote writes; default is preview"
+        )
+    steps.choices["publish"].add_argument(
+        "--ai-generated", action="store_true", help="Disclose AI-generated content to Instagram"
+    )
+    native_status = steps.add_parser("status", help="Read Instagram receipts")
+    native_status.add_argument("work", type=Path)
+    native_status.add_argument(
+        "--refresh", action="store_true", help="Read container status (GET only)"
+    )
     return root
 
 
@@ -167,6 +195,57 @@ def run_social(args: argparse.Namespace, settings: Settings, only: set[str] | No
             schedule=schedule,
             privacy=args.privacy,
             language=args.language,
+            execute=args.execute,
+        )
+
+
+def run_instagram(args: argparse.Namespace, settings: Settings, only: set[str] | None) -> Any:
+    command = args.instagram_command
+    if command == "doctor":
+        return {
+            **instagram.token_status(settings.config_dir),
+            "hosts": [instagram.GRAPH, instagram.UPLOAD],
+            "api_version": instagram.API_VERSION,
+            "live_auth": "unknown; doctor sends no requests",
+        }
+    if command == "status":
+        with workspace_lock(args.work):
+            token = instagram.load_token(settings.config_dir) if args.refresh else None
+            return instagram.status(args.work, instagram.Client(token) if token else None)
+    account_id, username = instagram.check_account(args.account_id, args.username)
+    version = instagram.check_version(args.api_version)
+    if command == "account":
+        reader = instagram.Client(instagram.load_token(settings.config_dir))
+        return instagram.identity(reader, version, account_id, username)
+    policy = load_policy(settings.config_dir)
+    with workspace_lock(args.work):
+        if command == "publish":
+            items = instagram.plan(
+                args.work, only or set(), account_id, username, args.ai_generated
+            )
+            action = "create"
+        else:
+            items = instagram.finish_plan(args.work, only or set(), account_id, username)
+            action = "check"  # Containers that may become publishable.
+        # The topic policy is enforced before the token is read or any request is sent.
+        policy.check("instagram", [i["_row"] for i in items if i["action"] == action])
+        if command == "finish":
+            return instagram.finish(
+                args.work,
+                instagram.Client(instagram.load_token(settings.config_dir)),
+                items,
+                account_id=account_id,
+                username=username,
+                version=version,
+                execute=args.execute,
+            )
+        return instagram.publish(
+            args.work,
+            instagram.Client(instagram.load_token(settings.config_dir)),
+            items,
+            account_id=account_id,
+            username=username,
+            version=version,
             execute=args.execute,
         )
 
@@ -229,6 +308,8 @@ def run(args: argparse.Namespace) -> Any:
             )
     if args.command == "social":
         return run_social(args, settings, only)
+    if args.command == "instagram":
+        return run_instagram(args, settings, only)
     if args.command == "render":
         if (
             not all(math.isfinite(v) for v in (args.start, args.end))

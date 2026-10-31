@@ -12,6 +12,7 @@ when you need them. Shell examples use POSIX syntax and run from the checkout un
 ## Task guides
 
 - [Rendering and stream analysis](guides/rendering.md): timestamps, layouts, captions and ranking.
+- [Native publishing](guides/native-publishing.md): your own YouTube/Meta apps without an intermediary.
 - [Multi-platform API publishing](guides/social-api.md): account connections, upload and receipts.
 - [YouTube](guides/youtube.md): authorization, online preview, uploads, schedules and recovery.
 - [Troubleshooting](guides/troubleshooting.md): symptoms, checks and fixes.
@@ -41,5 +42,5 @@ moments rather than judging context, rights, factual accuracy or audience appeal
 
 There is no graphical editor, hosted backend, bundled MCP server or daemon. Agents call the CLI; no
 Claude or OpenAI SDK is required by Zunara. Caption translation and screen recording are separate
-editing tasks. TikTok, Instagram and X support local exports and the optional Upload-Post API.
-YouTube also has a direct publisher using your own Google project.
+editing tasks. Instagram and YouTube have direct adapters using your own platform applications.
+The optional Upload-Post API is separate; TikTok public API access still needs platform approval.

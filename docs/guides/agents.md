@@ -59,7 +59,8 @@ not covered by the queue lock, so don't overlap it with queue/export/upload edit
 
 ## Account access and publication
 
-For recurring API publication across networks, use the [social commands](social-api.md).
+For your own platform apps, use the [native publishing flow](native-publishing.md).
+For an optional intermediary across networks, use the [social commands](social-api.md).
 Discover connected identifiers, preview the approved selection, execute within the user's scope,
 and poll saved receipts. A request ID alone is not proof that a post is published.
 

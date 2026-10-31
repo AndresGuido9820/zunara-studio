@@ -47,8 +47,8 @@ one.
 
 Output is H.264 at 30 fps with AAC at 160 kb/s, with a −14 LUFS loudness target. VAAPI is used when
 a test encode on `/dev/dri/renderD128` succeeds, libx264 otherwise. The encoders use different
-quality settings. A later VAAPI encode failure does not trigger an automatic software retry. Audio
-sample rate is not fixed by the command; inspect the result if your destination requires one.
+quality settings. A later VAAPI encode failure does not trigger an automatic software retry. AAC audio is resampled to
+48 kHz so loudness normalization does not leave a 96/192 kHz output unsuitable for Reels.
 
 ## Captions and language
 
