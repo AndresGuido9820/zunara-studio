@@ -1,6 +1,7 @@
 """CLI boundary: parse inputs, call application services, present actionable errors."""
 
 import argparse
+import contextlib
 import importlib
 import json
 import shutil
@@ -63,14 +64,18 @@ def parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Cut from this local video (e.g. a downloaded MP4) instead of the workspace VOD",
     )
-    for name, module in (
-        ("fetch", "fetch_vod"),
-        ("match", "audio_match"),
-        ("rank", "rank_moments"),
-    ):
-        cmd = commands.add_parser(name, help=f"Run the {name} pipeline stage (--help for usage)")
-        cmd.add_argument("arguments", nargs=argparse.REMAINDER)
-        cmd.set_defaults(module=module)
+    fetch = commands.add_parser("fetch", help="Acquire Kick VOD audio, subtitles and signals")
+    fetch.add_argument("channel")
+    fetch.add_argument("--index", type=int, default=0)
+    fetch.add_argument("--workspace", type=Path)
+    fetch.add_argument("--youtube-query", action="append", default=[])
+    match = commands.add_parser("match", help="Locate query audio inside VOD audio")
+    match.add_argument("vod_audio", type=Path)
+    match.add_argument("matches_json", type=Path)
+    match.add_argument("query_audio", type=Path, nargs="+")
+    rank = commands.add_parser("rank", help="Rank candidate moments in a VOD workspace")
+    rank.add_argument("work", type=Path)
+    rank.add_argument("top_n", type=int, nargs="?", default=15)
     return root
 
 
@@ -140,12 +145,31 @@ def run(args: argparse.Namespace) -> Any:
                 )
             )
         }
-    # Analysis dependencies and ASR models are loaded only for the stage that needs them.
-    stage = importlib.import_module(f"zunara.{args.module}")
+    # Validate arguments before importing optional analysis dependencies or making requests.
+    if args.command == "fetch":
+        if args.index < 0:
+            raise ValueError("VOD index cannot be negative.")
+        module = "fetch_vod"
+        arguments = [args.channel, "--index", str(args.index)]
+        if args.workspace is not None:
+            arguments += ["--workspace", str(args.workspace)]
+        for term in args.youtube_query:
+            arguments += ["--youtube-query", term]
+    elif args.command == "match":
+        module = "audio_match"
+        arguments = [str(args.vod_audio), str(args.matches_json), *map(str, args.query_audio)]
+    else:
+        if args.top_n <= 0:
+            raise ValueError("TOP_N must be greater than zero.")
+        module = "rank_moments"
+        arguments = [str(args.work), str(args.top_n)]
+    stage = importlib.import_module(f"zunara.{module}")
     previous = sys.argv
     try:
-        sys.argv = [args.module, *args.arguments]
-        stage.main()
+        sys.argv = [module, *arguments]
+        # Keep stdout parseable for callers; stage progress is diagnostic output.
+        with contextlib.redirect_stdout(sys.stderr):
+            stage.main()
     finally:
         sys.argv = previous
     return {"stage": args.command, "status": "complete"}

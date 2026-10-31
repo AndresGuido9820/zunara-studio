@@ -27,7 +27,7 @@ def client(settings: Settings, channel: str, *, interactive: bool = False) -> An
         from googleapiclient.discovery import build
     except ImportError as error:
         raise ValueError(
-            "Install the YouTube extra: pip install 'zunara-studio[youtube]'."
+            "Install the YouTube extra from the checkout: uv sync --locked --extra youtube."
         ) from error
 
     token = settings.token_path(channel)
