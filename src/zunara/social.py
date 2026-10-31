@@ -304,6 +304,15 @@ def _prior_outcome(
     return None
 
 
+def _browser_outcome(work: Path, row: dict[str, Any]) -> str | None:
+    """Browser receipts name an Instagram username, while ``--account`` is a provider account
+    identifier with no verified mapping to it, so any browser receipt for these bytes blocks."""
+    from zunara import browser  # Imported here: the browser adapter imports this module.
+
+    state = browser.prior_outcome(work, row["approved_sha256"])
+    return f"{browser.LEDGER} records {state}" if state else None
+
+
 def plan(
     work: Path, only: set[str], platforms: list[str], profile: str, expected: dict[str, str]
 ) -> list[dict[str, Any]]:
@@ -336,6 +345,8 @@ def plan(
                 item.update(action="skip", reason="queue.json already has a youtube_id")
             elif earlier:
                 item.update(action="skip", reason=f"publications.json records {earlier}")
+            elif platform == "instagram" and (browsed := _browser_outcome(work, row)):
+                item.update(action="skip", reason=browsed)
             elif platform == "x" and len(caption) > X_LIMIT:
                 raise ValueError(f"X text exceeds {X_LIMIT} characters: {row['file']}")
             else:

@@ -15,6 +15,10 @@ flowchart LR
     Instagram --> Meta[Graph API + Meta upload host]
     Instagram --> Queue
     Instagram --> NativeReceipts[(Native Instagram receipts)]
+    CLI --> Browser[Browser runner]
+    Browser --> Chromium[Dedicated Chromium profile]
+    Browser --> BrowserReceipts[(Browser receipts)]
+    Browser --> Queue
     CLI --> Social[Multi-platform adapter]
     Social --> Queue
     Social --> Provider[Upload-Post API]
@@ -43,6 +47,7 @@ flowchart LR
 | `media` | Run bounded `ffprobe` inspection | Invoke a shell |
 | `youtube` | OAuth, exact channel binding, previews, remote writes | Upload without explicit execution |
 | `instagram` | Meta account binding, verified local upload, processing and publication receipts | Treat a prepared container as a public post |
+| `browser` | Dedicated Chromium profile, page-verified identity, deterministic Instagram UI flow and receipts | Read cookies, reuse personal profiles, solve captchas or click an ambiguous control |
 | `social` | Provider account binding, HTTP submission, receipts and status reconciliation | Infer success from an accepted request or silently retry unknown uploads |
 | `signals`, `audio_match`, `rank_moments` | Audio/chat analysis and candidate ranking | Publish or claim editorial approval |
 | `render` | Captions, layout and encoding | Decide which claims are accurate |

@@ -8,6 +8,7 @@ media, authorizes OAuth or posts to a real account. Tests generate their own tin
 | Unit | `tests/unit` | Input validation, queue state, hashes, private JSON permissions, topic policy at the CLI boundary, signal edge cases and caption escaping |
 | Contract | `tests/contracts` | YouTube request shape using a fake SDK; multi-platform HTTP payloads, account checks, asynchronous results and interrupted submissions using fake HTTP |
 | Integration | `tests/integration` | Installed CLI and real FFmpeg/ffprobe with synthetic media; no model downloads or Internet |
+| Browser | `tests/integration/test_browser_playwright.py` | Real Chromium and the production Playwright adapter against local fixture pages served by a test-only route; all other requests are aborted. Skipped without the `browser` extra and Chromium |
 
 Tests describe behavior rather than reproducing every implementation statement. Negative cases
 matter: path traversal and symlinks, changed media after approval, wrong channels, unknown upload

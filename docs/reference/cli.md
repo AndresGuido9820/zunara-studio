@@ -182,3 +182,22 @@ The Page token comes from `ZUNARA_INSTAGRAM_ACCESS_TOKEN`, then private
 `CONFIG_DIR/instagram-access-token`. The Facebook-Login local-file path needs a Page-linked
 professional account and an appropriately authorized Meta app. See [native
 publishing](../guides/native-publishing.md) for setup, state recovery and supported metadata.
+
+## Unattended browser (Instagram)
+
+```text
+browser doctor
+browser login --platform instagram --username HANDLE [--timeout SECONDS]
+browser publish WORK --platform instagram --username HANDLE --only STEMS
+                [--execute] [--headed] [--share-timeout SECONDS] [--retry-unshared]
+browser status WORK
+```
+
+`doctor` and `status` open no browser. `login` opens a headed window on the dedicated profile for
+a manual login and waits up to `--timeout` (30–3600, default 600) seconds for the page to show
+`HANDLE`. `publish` without `--execute` is an offline preview. With `--execute`, it re-checks
+the account on the page and publishes. `--share-timeout` (30–3600, default 300) bounds the wait
+for Instagram's confirmation. `--retry-unshared` allows only clips whose media was attached but
+never shared. Platforms other than `instagram` are rejected. Stops exit `2` with one of
+`login_required`, `checkpoint_required`, `account_mismatch`, `ui_changed`, `browser_unavailable`
+or `unknown`. See [browser publishing](../guides/browser-publishing.md).

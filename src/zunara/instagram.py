@@ -292,9 +292,20 @@ def _index(ledger: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
 
 
 def _earlier(
-    work: Path, rows: list[dict[str, Any]], row: dict[str, Any], username: str
+    work: Path,
+    rows: list[dict[str, Any]],
+    row: dict[str, Any],
+    username: str,
+    *,
+    include_browser: bool = True,
 ) -> str | None:
-    """Outcomes recorded by browser work (publications.json) or the Upload-Post adapter."""
+    """Outcomes recorded by manual work (publications.json), Upload-Post or the browser runner."""
+    if include_browser:
+        from zunara import browser  # Imported here: the browser adapter imports this module.
+
+        state = browser.prior_outcome(work, row["approved_sha256"], username)
+        if state:
+            return f"{browser.LEDGER} records {state}"
     prior = social._prior_outcome(social._prior_entries(work), row, "instagram", len(rows) == 1)
     if prior:
         return f"publications.json records {prior}"
