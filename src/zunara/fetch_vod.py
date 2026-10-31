@@ -67,6 +67,7 @@ def ffmpeg_audio(url: str, out: Path) -> None:
             str(out),
         ],
         check=True,
+        stdout=sys.stderr,
         timeout=3600,
     )  # nosec B603
 
@@ -152,6 +153,7 @@ def main() -> None:
                 f"{base}/subtitles/es/playlist.m3u8",
             ],
             check=True,
+            stdout=sys.stderr,
             timeout=600,
         )  # nosec B603
     if not (work / "audio16k.wav").exists():
@@ -210,6 +212,7 @@ def main() -> None:
             str(work / "yt_ids.txt"),
         ],
         check=True,
+        stdout=sys.stderr,
         timeout=3600,
     )  # nosec B603
     print(f"{len(list((work / 'ext_audio').glob('*.wav')))} clips de terceros")

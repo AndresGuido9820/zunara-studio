@@ -1,8 +1,10 @@
 """CLI boundary: parse inputs, call application services, present actionable errors."""
 
 import argparse
+import contextlib
 import importlib
 import json
+import math
 import shutil
 import subprocess  # nosec B404
 import sys
@@ -26,7 +28,14 @@ def parser() -> argparse.ArgumentParser:
     inspect = commands.add_parser("inspect", help="Inspect a local video")
     inspect.add_argument("file", type=Path)
     for name in ("queue", "status", "approve", "export", "publish"):
-        command = commands.add_parser(name)
+        descriptions = {
+            "queue": "Discover clips and refresh review hashes",
+            "status": "Read the saved review queue",
+            "approve": "Approve explicitly selected, reviewed clips",
+            "export": "Export approved clips to a new local batch",
+            "publish": "Preview or explicitly execute YouTube uploads",
+        }
+        command = commands.add_parser(name, help=descriptions[name])
         command.add_argument("work", type=Path)
         if name in {"approve", "export", "publish"}:
             command.add_argument("--only", help="Comma-separated clip stems")
@@ -50,7 +59,7 @@ def parser() -> argparse.ArgumentParser:
             )
     auth = commands.add_parser("auth", help="Authorize a YouTube channel using desktop OAuth")
     auth.add_argument("--channel", required=True)
-    render = commands.add_parser("render", help="Render from an existing workspace")
+    render = commands.add_parser("render", help="Render a local video or workspace VOD interval")
     render.add_argument("work", type=Path)
     render.add_argument("start", type=float)
     render.add_argument("end", type=float)
@@ -63,15 +72,27 @@ def parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Cut from this local video (e.g. a downloaded MP4) instead of the workspace VOD",
     )
-    for name, module in (
-        ("fetch", "fetch_vod"),
-        ("match", "audio_match"),
-        ("rank", "rank_moments"),
-    ):
-        cmd = commands.add_parser(name, help=f"Run the {name} pipeline stage (--help for usage)")
-        cmd.add_argument("arguments", nargs=argparse.REMAINDER)
-        cmd.set_defaults(module=module)
+    fetch = commands.add_parser("fetch", help="Acquire Kick VOD audio, subtitles and signals")
+    fetch.add_argument("channel", help="Kick channel name")
+    fetch.add_argument("--index", type=int, default=0, help="Nonnegative VOD index (default: 0)")
+    fetch.add_argument("--workspace", type=Path, help="Parent of the channel/date workspace")
+    fetch.add_argument(
+        "--youtube-query", action="append", default=[], help="Search terms; repeatable"
+    )
+    match = commands.add_parser("match", help="Locate query audio inside VOD audio")
+    match.add_argument("vod_audio", type=Path, help="Long 16 kHz mono WAV")
+    match.add_argument("matches_json", type=Path, help="Output JSON path")
+    match.add_argument("query_audio", type=Path, nargs="+", help="One or more query WAVs")
+    rank = commands.add_parser("rank", help="Rank candidate moments in a VOD workspace")
+    rank.add_argument("work", type=Path, help="Workspace containing analysis inputs")
+    rank.add_argument("top_n", type=int, nargs="?", default=15, help="Positive count (default: 15)")
     return root
+
+
+def require_workspace_files(work: Path, names: tuple[str, ...]) -> None:
+    missing = [name for name in names if not (work / name).is_file()]
+    if missing:
+        raise ValueError(f"Missing workspace input(s): {', '.join(missing)}")
 
 
 def run(args: argparse.Namespace) -> Any:
@@ -131,6 +152,14 @@ def run(args: argparse.Namespace) -> Any:
                 execute=args.execute,
             )
     if args.command == "render":
+        if (
+            not all(math.isfinite(v) for v in (args.start, args.end))
+            or args.start < 0
+            or args.end <= args.start
+        ):
+            raise ValueError("Render interval must be finite and satisfy 0 <= start < end.")
+        if args.source is None:
+            require_workspace_files(args.work, ("audio16k.wav", "base_url.txt"))
         from zunara.render import render
 
         return {
@@ -140,12 +169,34 @@ def run(args: argparse.Namespace) -> Any:
                 )
             )
         }
-    # Analysis dependencies and ASR models are loaded only for the stage that needs them.
-    stage = importlib.import_module(f"zunara.{args.module}")
+    # Validate arguments before importing optional analysis dependencies or making requests.
+    if args.command == "fetch":
+        if args.index < 0:
+            raise ValueError("VOD index cannot be negative.")
+        module = "fetch_vod"
+        arguments = [args.channel, "--index", str(args.index)]
+        if args.workspace is not None:
+            arguments += ["--workspace", str(args.workspace)]
+        for term in args.youtube_query:
+            arguments += ["--youtube-query", term]
+    elif args.command == "match":
+        module = "audio_match"
+        arguments = [str(args.vod_audio), str(args.matches_json), *map(str, args.query_audio)]
+    else:
+        if args.top_n <= 0:
+            raise ValueError("TOP_N must be greater than zero.")
+        require_workspace_files(
+            args.work, ("audio16k.wav", "chat_samples.json", "subs_es.vtt", "matches.json")
+        )
+        module = "rank_moments"
+        arguments = [str(args.work), str(args.top_n)]
+    stage = importlib.import_module(f"zunara.{module}")
     previous = sys.argv
     try:
-        sys.argv = [args.module, *args.arguments]
-        stage.main()
+        sys.argv = [module, *arguments]
+        # Keep stdout parseable for callers; stage progress is diagnostic output.
+        with contextlib.redirect_stdout(sys.stderr):
+            stage.main()
     finally:
         sys.argv = previous
     return {"stage": args.command, "status": "complete"}

@@ -41,11 +41,24 @@ _ASR = None
 def asr_model():
     global _ASR
     if _ASR is None:
-        import onnx_asr
+        try:
+            import onnx_asr
+            from huggingface_hub.errors import LocalEntryNotFoundError
+        except ImportError:
+            raise ValueError(
+                "Rendering needs the asr extra. From the checkout run "
+                "uv sync --locked --no-dev --extra asr (or pip install '.[asr]')."
+            ) from None
 
-        _ASR = onnx_asr.load_model(
-            "nemo-parakeet-tdt-0.6b-v3", quantization="int8"
-        ).with_timestamps()
+        try:
+            _ASR = onnx_asr.load_model(
+                "nemo-parakeet-tdt-0.6b-v3", quantization="int8"
+            ).with_timestamps()
+        except LocalEntryNotFoundError:
+            raise ValueError(
+                "Speech model weights are not cached. Allow the first download "
+                "(unset HF_HUB_OFFLINE), or provide a populated Hugging Face cache."
+            ) from None
     return _ASR
 
 
