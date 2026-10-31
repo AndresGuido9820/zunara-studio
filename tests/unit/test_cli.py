@@ -79,13 +79,19 @@ def test_empty_publish_selector_is_rejected_before_auth(selection, monkeypatch, 
     ],
 )
 def test_analysis_commands_keep_stdout_json_and_restore_argv(
-    argv, module, forwarded, monkeypatch, capsys
+    argv, module, forwarded, monkeypatch, capsys, tmp_path
 ):
     import json
     import sys
     from types import SimpleNamespace
 
     original = sys.argv
+    monkeypatch.chdir(tmp_path)
+    if argv[0] == "rank":
+        work = tmp_path / argv[1]
+        work.mkdir()
+        for name in ("audio16k.wav", "chat_samples.json", "subs_es.vtt", "matches.json"):
+            (work / name).touch()
 
     def stage():
         assert sys.argv == [module, *forwarded]
@@ -138,8 +144,23 @@ def test_failed_stage_restores_process_arguments(monkeypatch, capsys):
 
     monkeypatch.setattr(cli.importlib, "import_module", lambda _: SimpleNamespace(main=stage))
     with pytest.raises(SystemExit):
-        cli.main(["rank", "work"])
+        cli.main(["fetch", "demo"])
     assert sys.argv is original
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "Synthetic stage failure" in captured.err
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["rank", "missing-work"],
+        ["render", "missing-work", "0", "1", "--hook", "Test", "--name", "test"],
+    ],
+)
+def test_missing_workspace_inputs_are_named_before_loading_stages(argv, monkeypatch, capsys):
+    monkeypatch.setattr(cli.importlib, "import_module", lambda _: pytest.fail("Unexpected import"))
+    with pytest.raises(SystemExit) as error:
+        cli.main(argv)
+    assert error.value.code == 2
+    assert "Missing workspace input(s): audio16k.wav" in capsys.readouterr().err

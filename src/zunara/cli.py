@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import importlib
 import json
+import math
 import shutil
 import subprocess  # nosec B404
 import sys
@@ -27,7 +28,14 @@ def parser() -> argparse.ArgumentParser:
     inspect = commands.add_parser("inspect", help="Inspect a local video")
     inspect.add_argument("file", type=Path)
     for name in ("queue", "status", "approve", "export", "publish"):
-        command = commands.add_parser(name)
+        descriptions = {
+            "queue": "Discover clips and refresh review hashes",
+            "status": "Read the saved review queue",
+            "approve": "Approve explicitly selected, reviewed clips",
+            "export": "Export approved clips to a new local batch",
+            "publish": "Preview or explicitly execute YouTube uploads",
+        }
+        command = commands.add_parser(name, help=descriptions[name])
         command.add_argument("work", type=Path)
         if name in {"approve", "export", "publish"}:
             command.add_argument("--only", help="Comma-separated clip stems")
@@ -65,18 +73,26 @@ def parser() -> argparse.ArgumentParser:
         help="Cut from this local video (e.g. a downloaded MP4) instead of the workspace VOD",
     )
     fetch = commands.add_parser("fetch", help="Acquire Kick VOD audio, subtitles and signals")
-    fetch.add_argument("channel")
-    fetch.add_argument("--index", type=int, default=0)
-    fetch.add_argument("--workspace", type=Path)
-    fetch.add_argument("--youtube-query", action="append", default=[])
+    fetch.add_argument("channel", help="Kick channel name")
+    fetch.add_argument("--index", type=int, default=0, help="Nonnegative VOD index (default: 0)")
+    fetch.add_argument("--workspace", type=Path, help="Parent of the channel/date workspace")
+    fetch.add_argument(
+        "--youtube-query", action="append", default=[], help="Search terms; repeatable"
+    )
     match = commands.add_parser("match", help="Locate query audio inside VOD audio")
-    match.add_argument("vod_audio", type=Path)
-    match.add_argument("matches_json", type=Path)
-    match.add_argument("query_audio", type=Path, nargs="+")
+    match.add_argument("vod_audio", type=Path, help="Long 16 kHz mono WAV")
+    match.add_argument("matches_json", type=Path, help="Output JSON path")
+    match.add_argument("query_audio", type=Path, nargs="+", help="One or more query WAVs")
     rank = commands.add_parser("rank", help="Rank candidate moments in a VOD workspace")
-    rank.add_argument("work", type=Path)
-    rank.add_argument("top_n", type=int, nargs="?", default=15)
+    rank.add_argument("work", type=Path, help="Workspace containing analysis inputs")
+    rank.add_argument("top_n", type=int, nargs="?", default=15, help="Positive count (default: 15)")
     return root
+
+
+def require_workspace_files(work: Path, names: tuple[str, ...]) -> None:
+    missing = [name for name in names if not (work / name).is_file()]
+    if missing:
+        raise ValueError(f"Missing workspace input(s): {', '.join(missing)}")
 
 
 def run(args: argparse.Namespace) -> Any:
@@ -136,6 +152,14 @@ def run(args: argparse.Namespace) -> Any:
                 execute=args.execute,
             )
     if args.command == "render":
+        if (
+            not all(math.isfinite(v) for v in (args.start, args.end))
+            or args.start < 0
+            or args.end <= args.start
+        ):
+            raise ValueError("Render interval must be finite and satisfy 0 <= start < end.")
+        if args.source is None:
+            require_workspace_files(args.work, ("audio16k.wav", "base_url.txt"))
         from zunara.render import render
 
         return {
@@ -161,6 +185,9 @@ def run(args: argparse.Namespace) -> Any:
     else:
         if args.top_n <= 0:
             raise ValueError("TOP_N must be greater than zero.")
+        require_workspace_files(
+            args.work, ("audio16k.wav", "chat_samples.json", "subs_es.vtt", "matches.json")
+        )
         module = "rank_moments"
         arguments = [str(args.work), str(args.top_n)]
     stage = importlib.import_module(f"zunara.{module}")
